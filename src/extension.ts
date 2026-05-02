@@ -14,6 +14,7 @@ import { translate } from './translate';
 import LLMService from './LLMService';
 import { showPreview } from './showPreview';
 import { sendToAi } from './sendToAi';
+import { sendFilesToAi } from './sendFilesToAi';
 
 export function activate(context: ExtensionContext) {
     // --- BEFEHL 1: Source Block einfügen ---
@@ -62,16 +63,6 @@ export function activate(context: ExtensionContext) {
         }
     );
 
-    // --- BEFEHL 10: Übersetzung (ganze Datei) ---
-    let translateEntireFileCmd = commands.registerCommand(
-        'asciidoc-productivity.translateEntireFile',
-        async (clickedUri?: Uri) => { // clickedUri wird vom Explorer übergeben
-            const configurationService = new ConfigurationService();
-            const llmService = new LLMService(configurationService);
-            await translate(configurationService, llmService, clickedUri);
-        }
-    );
-
     // --- BEFEHL 10: Send to AI (Bündelt Spellcheck, Simplify & Custom) ---
     let sendToAiCmd = commands.registerCommand(
         'asciidoc-productivity.sendToAi',
@@ -91,6 +82,16 @@ export function activate(context: ExtensionContext) {
         () => showPreview(context)
     );
 
+    // --- BEFEHL 12: Send Files to AI (Explorer Kontextmenü) ---
+    let sendFilesToAiCmd = commands.registerCommand(
+        'asciidoc-productivity.sendFilesToAi',
+        async (clickedUri?: Uri, selectedUris?: Uri[]) => {
+            const configurationService = new ConfigurationService();
+            const llmService = new LLMService(configurationService);
+            await sendFilesToAi(clickedUri, selectedUris, configurationService, llmService);
+        }
+    );
+
     context.subscriptions.push(
         insertSourceBlockCmd,
         insertImageBlockCmd,
@@ -101,9 +102,9 @@ export function activate(context: ExtensionContext) {
         copySourcesToClipboardCmd,
         copyAsTsvCmd,
         translateCmd,
-        translateEntireFileCmd,
         exportAsPdfCmd,
-        showPreviewCmd
+        showPreviewCmd,
+        sendFilesToAiCmd
     );
 }
 

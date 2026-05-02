@@ -55,8 +55,7 @@ The conversion is executed using the `asciidoctor/docker-asciidoctor` Docker ima
 ## 10. AI Features: Translation and Custom Prompts
 You can trigger AI-assisted edits directly from your editor or explorer:
 * **Translate Selection:** Select text, right-click, and choose _LLM: Translate_.
-* **Translate Entire File:** Right-click an `.adoc` file in the Explorer and choose _LLM: Translate entire file_.
-* **Send to AI:** Select text, right-click, and choose _LLM: Send to AI..._. A menu will open allowing you to choose from configurable preset tasks (like Spellchecking or Text Simplification) or enter a completely custom prompt and temperature on the fly. 
+* **Send to AI:** Select text or file, right-click, and choose _LLM: Send to AI..._. A menu will open allowing you to choose from configurable preset tasks (like Spellchecking or Text Simplification) or enter a completely custom prompt and temperature on the fly. 
 
 *Prerequisite: An OpenAI-compatible endpoint (like LM Studio, Ollama) or a Cloud API (like Google Gemini, OpenAI) is required. Configure your endpoint URL, model, and optional API Key in your workspace settings.*
 
@@ -93,7 +92,12 @@ You can customize the extension via your `settings.json`. Here are the available
       "name": "Simplify text",
       "prompt": "You are an expert editor for asciidoc documents. Rewrite the provided German text to be clear and easily understandable for non-native students with a B2 language level.\nKeep all technical terms intact, but resolve overly nested sentences (Schachtelsätze) and avoid unnecessary passive voice.\nMaintain the original tone and all formatting (especially AsciiDoc syntax and source blocks).\nOutput ONLY the rewritten text. Do not add explanations or comments.",
       "temperature": 0.2
-    }
+    },
+    {
+        "name": "Cleanup and Comment codefile",
+        "prompt": "You are an expert polyglot software engineer performing a precise, CONSERVATIVE code refactoring and documentation task. Your primary goal is safety. You must clean up and document the provided code file WITHOUT altering its execution logic, state management, or structural integrity.\n\nFollow these strict requirements:\n1. Remove Old Comments (WITH EXCEPTIONS): Delete all existing explanatory comments, BUT you MUST PRESERVE all compiler directives, linter rules, type annotations, and pragmas specific to the language (e.g., JS/TS: `// @ts-expect-error`, `/* eslint-disable */`; Python: `# type: ignore`, `# pylint: disable`; C#: `#pragma warning disable`, etc.).\n2. English Only: Write all new comments exclusively in English.\n3. Structural Documentation: Add or update clear, professional comments at the class and method/function level using the standard documentation format of the target language. Preserve standard metadata tags (like `@param`, `@returns`, etc.).\n4. Selective Inline Comments: Inside methods, explain only non-trivial or complex logic.\n5. Clean Code: Improve readability, but prefer safety over cleverness.\n6. STRICT Scope & Lifecycle Preservation: DO NOT change the scope of any variables or functions (e.g., do not move function-level variables to class-level properties). DO NOT alter object lifecycles, caching behaviors, or state management. If a value is dynamically fetched inside a method, it must continue to be fetched inside that method.\n7. Preserve Logic: DO NOT change the underlying execution flow, input/output behavior, or business rules.\n8. Line Length (Soft Limit): Aim for a maximum line length of 100 characters for both code and comments, prioritizing logical readability.\n\nCRITICAL OUTPUT FORMAT INSTRUCTIONS:\nYou must respond ONLY with the raw, refactored source code. \n- DO NOT wrap the code in Markdown code blocks (do not use ``` symbols).\n- DO NOT output any conversational text, introductions, explanations, or summary.\n- The very first character of your response must be the first character of the code file.",
+        "temperature": 0.1,
+    }    
   ]
 }
 ```

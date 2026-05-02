@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.14",
+  "version": "1.0.16",
   "icon": "icon.png",
   "repository": {
     "type": "git",
@@ -141,12 +141,12 @@
         "title": "LLM: Translate"
       },
       {
-        "command": "asciidoc-productivity.translateEntireFile",
-        "title": "LLM: Translate entire file"
-      },
-      {
         "command": "asciidoc-productivity.sendToAi",
         "title": "LLM: Send to AI..."
+      },
+      {
+        "command": "asciidoc-productivity.sendFilesToAi",
+        "title": "LLM: Send File(s) to AI..."
       },
       {
         "command": "asciidoc-productivity.exportAsPdf",
@@ -229,7 +229,7 @@
           "group": "navigation"
         },
         {
-          "command": "asciidoc-productivity.translateEntireFile",
+          "command": "asciidoc-productivity.sendFilesToAi",
           "group": "navigation"
         },
         {
