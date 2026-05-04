@@ -16,44 +16,37 @@ import { showPreview } from './showPreview';
 import { sendToAi } from './sendToAi';
 import { sendFilesToAi } from './sendFilesToAi';
 
+/**
+ * Activates the extension by registering all commands and subscribing them to the context.
+ * @param context - The VS Code extension context provided by the host environment.
+ */
 export function activate(context: ExtensionContext) {
-    // --- BEFEHL 1: Source Block einfügen ---
     let insertSourceBlockCmd = commands.registerCommand(
         'asciidoc-productivity.insertSourceBlock', insertSourceBlock);
 
-    // --- BEFEHL 2: Bild-URL herunterladen, speichern und einfügen ---
     let insertImageBlockCmd = commands.registerCommand(
         'asciidoc-productivity.insertImageBlock', insertImageBlock);
 
-    // --- BEFEHL 3: TSV Tabelle einfügen ---
     let insertTsvTableCmd = commands.registerCommand(
         'asciidoc-productivity.insertTsvTable', insertTsvTable);
 
-    // --- BEFEHL 4: Bild aus Datei einfügen ---
     let insertImageFromFileCmd = commands.registerCommand(
         'asciidoc-productivity.insertImageFromFile', insertImageFromFile);
 
-    // --- BEFEHL 5: Bild aus Zwischenablage speichern und einfügen ---
     let insertImageFromClipboardCmd = commands.registerCommand(
         'asciidoc-productivity.insertImageFromClipboard', insertImageFromClipboard);
 
-    // --- BEFEHL 6: Datei aus dem Explorer als Source Block einfügen ---
-    // Wichtig: Beim Klick im Explorer übergibt VS Code die "clickedUri" als Argument!
     let insertFileAsSourceBlockCmd = commands.registerCommand(
         'asciidoc-productivity.insertFileAsSourceBlock',
         async (clickedUri: Uri) => await insertFileAsSourceBlock(clickedUri));
 
-    // --- BEFEHL 7: Sourcecode aus einem Verzeichnis in die Zwischenablage kopieren
-    // Wichtig: Beim Klick im Explorer übergibt VS Code die "clickedUri" als 1. und alle "selectedUris" als 2. Argument!    
     let copySourcesToClipboardCmd = commands.registerCommand(
         'asciidoc-productivity.copySourcesToClipboard',
         async (clickedUri?: Uri, selectedUris?: Uri[]) => await copySourcesToClipboard(clickedUri, selectedUris, new ConfigurationService()));
 
-    // --- BEFEHL 8: Tabelle als TSV kopieren ---
     let copyAsTsvCmd = commands.registerCommand(
         'asciidoc-productivity.copyAsTsv', copyAsTsv);
 
-    // --- BEFEHL 9: Übersetzung ---
     let translateCmd = commands.registerCommand(
         'asciidoc-productivity.translate',
         async () => {
@@ -63,7 +56,6 @@ export function activate(context: ExtensionContext) {
         }
     );
 
-    // --- BEFEHL 10: Send to AI (Bündelt Spellcheck, Simplify & Custom) ---
     let sendToAiCmd = commands.registerCommand(
         'asciidoc-productivity.sendToAi',
         async () => {
@@ -72,7 +64,7 @@ export function activate(context: ExtensionContext) {
             await sendToAi(configurationService, llmService);
         }
     );
-    // --- BEFEHL 11: Export als PDF ---
+
     let exportAsPdfCmd = commands.registerCommand(
         'asciidoc-productivity.exportAsPdf',
         async (clickedUri: Uri) => await exportAsPdf(clickedUri));
@@ -82,7 +74,6 @@ export function activate(context: ExtensionContext) {
         () => showPreview(context)
     );
 
-    // --- BEFEHL 12: Send Files to AI (Explorer Kontextmenü) ---
     let sendFilesToAiCmd = commands.registerCommand(
         'asciidoc-productivity.sendFilesToAi',
         async (clickedUri?: Uri, selectedUris?: Uri[]) => {
@@ -108,4 +99,7 @@ export function activate(context: ExtensionContext) {
     );
 }
 
+/**
+ * Deactivates the extension. Currently performs no cleanup operations.
+ */
 export function deactivate() { }

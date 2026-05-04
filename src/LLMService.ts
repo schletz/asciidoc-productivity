@@ -26,20 +26,24 @@ export default class LLMService {
     }
 
     /**
-     * Sends a prompt to the configured LLM and returns the generated content along with usage statistics.
+     * Sends a prompt to the configured LLM and returns generated content with usage metrics.
      * @param systemPrompt - System-level instruction for the model.
      * @param userPrompt - User input message.
      * @param temperature - Controls randomness in response generation.
      * @param outputChannel - Optional VS Code channel for logging request/response metrics.
+     * @returns Promise resolving to a PromptResult containing content and stats.
      */
     public async sendPrompt(
-        systemPrompt: string, userPrompt: string,
+        systemPrompt: string,
+        userPrompt: string,
         temperature: number,
-        outputChannel?: vscode.OutputChannel): Promise<PromptResult> {
+        outputChannel?: vscode.OutputChannel
+    ): Promise<PromptResult> {
         const url = this.configService.getCompletionsUrl();
         const model = this.configService.getLlm();
         const apiKey = this.configService.getApiKey();
-        // Fallback to a placeholder token when no API key is configured to prevent request failures
+
+        // Fallback to placeholder token when API key is missing to prevent request failure
         const authHeader = apiKey ? `Bearer ${apiKey}` : 'Bearer EMPTY';
 
         if (outputChannel) {
@@ -48,8 +52,7 @@ export default class LLMService {
         }
 
         const startTime = performance.now();
-        
-        // Execute the API request with configured parameters and message history
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -57,13 +60,13 @@ export default class LLMService {
                 'Authorization': authHeader
             },
             body: JSON.stringify({
-                model: model,
+                model,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt }
                 ],
                 max_tokens: this.configService.getMaxOutputTokens(),
-                temperature: temperature
+                temperature
             })
         });
 
@@ -71,17 +74,15 @@ export default class LLMService {
             throw new Error(`API Error: Status ${response.status} - ${response.statusText}`);
         }
 
-        const data: any = await response.json();
-        
-        // Extract generated content and detect truncation caused by token limits
+        const data:any = await response.json();
+
         const content = data.choices[0].message.content.trim();
-        const hasLengethExeeded = data.choices[0].finish_reason == "length";
+        const hasLengethExeeded = data.choices[0].finish_reason === "length";
         const endTime = performance.now();
 
-        // Compute latency and throughput metrics based on API usage data
         const durationSeconds = (endTime - startTime) / 1000;
-        const completionTokens = data.usage?.completion_tokens || 0;
-        const promptTokens = data.usage?.prompt_tokens || 0;
+        const completionTokens = data.usage?.completion_tokens ?? 0;
+        const promptTokens = data.usage?.prompt_tokens ?? 0;
 
         let stats: PromptStats | null = null;
         if (completionTokens > 0 && durationSeconds > 0) {
@@ -90,7 +91,7 @@ export default class LLMService {
                 completionTokens,
                 durationSeconds: Number(durationSeconds.toFixed(1)),
                 tokensPerSecond: Number((completionTokens / durationSeconds).toFixed(1)),
-                hasLengethExeeded: hasLengethExeeded
+                hasLengethExeeded
             };
 
             if (outputChannel) {

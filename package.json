@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "icon": "icon.png",
   "repository": {
     "type": "git",
@@ -23,7 +23,7 @@
       "properties": {
         "asciidoc-productivity.includeExtensions": {
           "type": "string",
-          "default": "cs|csproj|java|rb|json|js|ts|jsx|tsx|py|txt|xml|adoc|md|cmd|sh|sql|yaml|puml",
+          "default": "abap|actionscript|ada|adb|ado|adoc|ads|apache|apex|apib|applescript|as|asm|aug|awk|b|bat|bbc|bf|bib|bicep|biml|bpf|brs|bsl|c|cc|ceylon|cfc|cfm|cjs|clj|cljc|cljs|cls|cmake|cmd|cmm|coffee|conf|coq|cpp|cr|cs|csproj|css|csvs|cu|cxx|cyp|cypher|d|dart|dfy|diff|dig|do|dockerfile|dot|e|ecl|edp|eex|elm|eml|epp|erb|erl|ex|exs|f|f90|factor|feature|frag|fs|fsi|fsx|gd|glsl|go|gql|gradle|graphql|groovy|gv|h|hack|haml|hbs|hcl|hcr|hh|hlsl|hocon|hpp|hql|hrl|hs|htm|html|http|hx|hy|ice|idl|idr|ijs|ini|io|ipf|irb|isbl|j2|janet|java|jinja|jl|js|jsl|json|json5|jsonnet|jsp|jsx|kt|kts|lasso|lean|lhs|liquid|lisp|litcoffee|ll|ls|lsp|lua|lus|lut|m|magik|mak|matlab|md|meson|mjs|mk|ml|mli|mm|mojo|moon|mos|mxml|mzn|ndf|nginx|nim|nix|ocl|os|p|p4|pas|patch|php|phtml|pkb|pks|pl|plist|pm|pony|pp|praat|pro|prolog|properties|proto|ps|ps1|psm1|puml|py|pyw|pyx|q|qml|r|rb|re|rego|rei|res|resi|rkt|rml|robot|rq|rs|s|sas|sass|sc|scala|scm|scpt|scss|sed|service|sh|sieve|slim|sml|sqf|sql|ss|ssh|st|stan|sv|svelte|swift|syz|tap|tcl|tex|tf|thy|tlp|toml|tpl|trigger|ts|tsx|ttcn3|ttl|twig|txt|v|vala|vb|vcl|vert|veryl|vhd|vhdl|vim|vm|vue|wlk|xml|xojo_code|xpath|xq|xquery|yaml|yang|yml|zig",
           "description": "Regex for file extensions that should be considered when copying (e.g., 'cs|csproj|ts|html')."
         },
         "asciidoc-productivity.excludeDirectories": {

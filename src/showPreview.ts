@@ -28,16 +28,22 @@ import * as fs from 'fs';
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 let changeDocumentSubscription: vscode.Disposable | undefined = undefined;
 
-// --- HELPER FUNCTION: Resolves includes in the Node.js backend ---
+/**
+ * Resolves local include directives synchronously using the Node.js backend.
+ * @param text - The AsciiDoc source text.
+ * @param documentUri - The URI of the current document.
+ * @returns The resolved text with includes expanded or error placeholders.
+ */
 function resolveLocalIncludes(text: string, documentUri: vscode.Uri): string {
     if (documentUri.scheme !== 'file') {
         return text;
     }
 
     const baseDir = path.dirname(documentUri.fsPath);
+    // Match include directives and replace with file contents or error messages
     const includeRegex = /^include::([^\[]+)\[(.*?)\]/gm;
 
-    return text.replace(includeRegex, (match, filePath) => {
+    return text.replace(includeRegex, (match: string, filePath: string) => {
         try {
             const fullPath = path.join(baseDir, filePath);
             if (fs.existsSync(fullPath)) {
@@ -51,6 +57,10 @@ function resolveLocalIncludes(text: string, documentUri: vscode.Uri): string {
     });
 }
 
+/**
+ * Creates and manages the AsciiDoc preview webview panel.
+ * @param context - The VS Code extension context.
+ */
 export function showPreview(context: vscode.ExtensionContext) {
     const editor = vscode.window.activeTextEditor;
 
@@ -61,7 +71,9 @@ export function showPreview(context: vscode.ExtensionContext) {
 
     const column = vscode.ViewColumn.Beside;
     const documentDir = vscode.Uri.file(path.dirname(editor.document.uri.fsPath));
-    const localResourceRoots = [vscode.Uri.joinPath(context.extensionUri, 'lib')];
+    
+    // Configure allowed local resource roots for the webview
+    const localResourceRoots: vscode.Uri[] = [vscode.Uri.joinPath(context.extensionUri, 'lib')];
     if (vscode.workspace.workspaceFolders) {
         localResourceRoots.push(...vscode.workspace.workspaceFolders.map(f => f.uri));
     } else {
@@ -84,6 +96,7 @@ export function showPreview(context: vscode.ExtensionContext) {
     
     currentPanel.webview.html = getWebviewContent(libUri, baseUri, printRawHtml);
     
+    // Delay initial render to ensure the webview is fully initialized
     setTimeout(() => {
         if (currentPanel) {
             const resolvedText = resolveLocalIncludes(editor.document.getText(), editor.document.uri);
@@ -107,8 +120,15 @@ export function showPreview(context: vscode.ExtensionContext) {
     }, null);
 }
 
+/**
+ * Generates the HTML content for the preview webview.
+ * @param libUri - The webview URI pointing to extension library assets.
+ * @param baseUri - The webview URI pointing to the document's directory.
+ * @param printRawHtml - Flag to enable raw HTML output mode.
+ * @returns The complete HTML string for the preview panel.
+ */
 function getWebviewContent(libUri: vscode.Uri, baseUri: vscode.Uri, printRawHtml: boolean) {
-    // baseUri erhält am Ende einen Slash, damit der Browser ihn als Basis-Ordner erkennt!
+    // Ensure baseHref ends with a slash to act as a proper base folder in browsers
     const baseHref = baseUri.toString().endsWith('/') ? baseUri.toString() : baseUri.toString() + '/';
 
     return `

@@ -3,9 +3,9 @@ import * as path from 'path';
 import { Uri } from 'vscode';
 
 /**
- * Service class that encapsulates common VS Code editor operations and utilities.
- * Provides a safe interface for interacting with the active text editor, file dialogs,
- * and path resolution within an extension context.
+ * Encapsulates common VS Code editor operations and utilities.
+ * Provides a safe interface for interacting with the active text editor,
+ * file dialogs, and path resolution within an extension context.
  */
 export default class EditorService {
     private editor: vscode.TextEditor;
@@ -24,7 +24,7 @@ export default class EditorService {
 
     /**
      * Executes a provided callback function against the current editor instance.
-     * Useful for performing type-safe operations that require direct access to the editor object.
+     * Enables type-safe operations requiring direct access to the editor object.
      * @param operations A function that receives the active editor and returns a result of type T.
      * @returns The return value of the executed callback.
      */

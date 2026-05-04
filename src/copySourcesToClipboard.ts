@@ -4,14 +4,18 @@ import * as mammoth from 'mammoth';
 import ConfigurationService from './ConfigurationService';
 // @ts-expect-error: Ignore ESM/CommonJS conflict (TS1479)
 import { PdfReader } from "pdfreader";
+import { sourceTypes } from './globals';
 
-// --- PARSERS ---
-
+/**
+ * Extracts raw text content from a DOCX file.
+ * @param uri - The URI of the DOCX file to process.
+ * @returns A promise resolving to the extracted plain text string.
+ */
 async function copyDocx(uri: vscode.Uri): Promise<string> {
     try {
         const fileData = await vscode.workspace.fs.readFile(uri);
         const buffer = Buffer.from(fileData);
-        const result = await mammoth.extractRawText({ buffer: buffer });
+        const result = await mammoth.extractRawText({ buffer });
         return result.value.trim();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -20,6 +24,11 @@ async function copyDocx(uri: vscode.Uri): Promise<string> {
     }
 }
 
+/**
+ * Extracts text content from a PDF file.
+ * @param uri - The URI of the PDF file to process.
+ * @returns A promise resolving to the extracted plain text string.
+ */
 async function copyPdf(uri: vscode.Uri): Promise<string> {
     try {
         const fileData = await vscode.workspace.fs.readFile(uri);
@@ -41,24 +50,33 @@ async function copyPdf(uri: vscode.Uri): Promise<string> {
     }
 }
 
+/** Map of supported file extensions to their respective extraction functions. */
 const parsers: Record<string, (filename: vscode.Uri) => Promise<string>> = {
     "docx": copyDocx,
     "pdf": copyPdf
 };
 
-// --- CORE CLASS ---
-
+/**
+ * Manages the extraction and formatting of source files into XML format for clipboard storage.
+ */
 class SourceCopier {
     private parentPath: string;
     private rootName: string;
     private extRegex: RegExp;
     private excludedFiles: string[];
     private excludedDirectories: string[];
-    private maxFileSizeBytes = 10_485_760; // 10 MB
+    private maxFileSizeBytes = 10_485_760;
+    private maxSourceFileSizeBytes = 51_200;
     private output: string;
     private processedFileCount = 0;
-    private processedFilePaths = new Set<string>(); // Set zur Vermeidung von Duplikaten
+    private processedFilePaths = new Set<string>();
 
+    /**
+     * Initializes the copier with target URIs, extension filters, and configuration.
+     * @param targets - The list of file or directory URIs to process.
+     * @param includeExtensions - Regex pattern for allowed file extensions.
+     * @param configService - Configuration service providing exclusion lists.
+     */
     constructor(
         targets: vscode.Uri[],
         includeExtensions: string,
@@ -68,7 +86,6 @@ class SourceCopier {
         this.excludedFiles = configService.getExcludedFiles();
         this.excludedDirectories = configService.getExcludedDirectories();
 
-        // Determine common root path
         if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
             this.parentPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
             this.rootName = vscode.workspace.workspaceFolders[0].name;
@@ -78,22 +95,24 @@ class SourceCopier {
         }
 
         const now = new Date().toISOString();
-        this.output = `<?xml version="1.0"?>\n<documents root="${this.rootName}" created="${now}">\n\n`;
+        this.output = `<?xml version="1.0"?>\n` +
+            `<documents root="${this.rootName}" created="${now}">\n\n`;
     }
 
+    /**
+     * Executes the file processing pipeline and handles clipboard/save operations.
+     * @param targets - The list of URIs to process.
+     */
     public async execute(targets: vscode.Uri[]) {
-        // 1. Heuristic: Filter out parent folders if their children have been explicitly selected.
-        // This occurs when the user selects multiple elements (e.g., using Shift) within an expanded folder.
+        // Filter out parent folders when their children are explicitly selected
         const filteredTargets = targets.filter(target => {
             return !targets.some(other => {
                 if (target.fsPath === other.fsPath) { return false; }
-                // Check if 'other' is a child element of 'target'
                 const relative = path.relative(target.fsPath, other.fsPath);
                 return !!relative && !relative.startsWith('..') && !path.isAbsolute(relative);
             });
         });
 
-        // 2. Process filtered targets
         for (const targetUri of filteredTargets) {
             const stat = await vscode.workspace.fs.stat(targetUri);
             const name = path.basename(targetUri.fsPath);
@@ -110,9 +129,8 @@ class SourceCopier {
 
         this.output += `</documents>\n`;
 
-        // 3. Process result
         await vscode.env.clipboard.writeText(this.output);
-        
+
         const userChoice = await vscode.window.showInformationMessage(
             `${this.processedFileCount} files copied as XML. Would you also like to save the content as a file?`,
             'Yes',
@@ -137,30 +155,39 @@ class SourceCopier {
         }
     }
 
+    /**
+     * Processes a single file: validates extensions, size, and exclusions before extraction.
+     * @param fileUri - The URI of the file to process.
+     */
     private async processFile(fileUri: vscode.Uri) {
         const fsPath = fileUri.fsPath;
         const name = path.basename(fsPath);
 
-        // Duplicate check with the Set
-        if (this.processedFilePaths.has(fsPath)) { 
-            return; 
+        if (this.processedFilePaths.has(fsPath)) {
+            return;
         }
 
         if (this.excludedFiles.includes(name.toLowerCase())) { return; }
-        
+
         const ext = path.extname(name).replace('.', '').toLowerCase();
         if (!this.extRegex.test(ext)) { return; }
 
         const fileStat = await vscode.workspace.fs.stat(fileUri);
-        if (fileStat.size > this.maxFileSizeBytes) { return; }
-
+        const sizeLimit = sourceTypes[ext]
+            ? this.maxSourceFileSizeBytes
+            : this.maxFileSizeBytes;
         let fileContent = "";
 
-        if (parsers[ext]) {
-            fileContent = await parsers[ext](fileUri);
-        } else {
-            const fileData = await vscode.workspace.fs.readFile(fileUri);
-            fileContent = (Buffer.from(fileData) as any).getStringWithEncodingDetection();
+        if (fileStat.size <= sizeLimit) {
+            if (parsers[ext]) {
+                fileContent = await parsers[ext](fileUri);
+            } else {
+                const fileData = await vscode.workspace.fs.readFile(fileUri);
+                fileContent = (Buffer.from(fileData) as any).getStringWithEncodingDetection();
+            }
+        }
+        else {
+            fileContent = `This file was not processed because it has ${fileStat.size} Bytes. This exceeded the size limit of ${sizeLimit} bytes.`
         }
 
         let relativePath = path.relative(this.parentPath, fileUri.fsPath).replace(/\\/g, '/');
@@ -169,10 +196,15 @@ class SourceCopier {
         }
 
         this.processedFilePaths.add(fsPath);
-        this.output += `<file path="${relativePath}" language="${ext}">\n<![CDATA[\n${fileContent}\n]]>\n</file>\n\n`;
+        const language = sourceTypes[ext] ?? ext
+        this.output += `<file path="${relativePath}" language="${language}">\n<![CDATA[\n${fileContent}\n]]>\n</file>\n\n`;
         this.processedFileCount++;
     }
 
+    /**
+     * Recursively processes a directory and its contents.
+     * @param dirUri - The URI of the directory to process.
+     */
     private async processDirectory(dirUri: vscode.Uri) {
         const entries = await vscode.workspace.fs.readDirectory(dirUri);
 
@@ -191,14 +223,17 @@ class SourceCopier {
     }
 }
 
-// --- MAIN COMMAND HANDLER ---
-
+/**
+ * Entry point for the copy sources command. Collects targets and initiates processing.
+ * @param clickedUri - The URI of a single clicked item.
+ * @param selectedUris - The list of URIs from multi-selection.
+ * @param configurationService - Configuration service providing defaults.
+ */
 export async function copySourcesToClipboard(
     clickedUri: vscode.Uri | undefined,
     selectedUris: vscode.Uri[] | undefined,
     configurationService: ConfigurationService) {
 
-    // 1. Ziele sammeln
     let targets: vscode.Uri[] = [];
     if (selectedUris && selectedUris.length > 0) {
         targets = selectedUris;
@@ -216,7 +251,7 @@ export async function copySourcesToClipboard(
             prompt: 'Extensions to consider. Regex expression. Example: cs|java',
             value: configurationService.getIncludeExtensions()
         });
-        
+
         if (includeExtensions === undefined) {
             return;
         }

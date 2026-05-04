@@ -1,9 +1,13 @@
 import * as vscode from 'vscode';
 import EditorService from './EditorService';
 
-export async function insertSourceBlock() {
+/**
+ * Inserts clipboard content into the active editor as a formatted source block.
+ * Prompts for a language identifier to enable syntax highlighting in the output.
+ */
+export async function insertSourceBlock(): Promise<void> {
     try {
-        const editorService = new EditorService(); // Throws error if no editor is open
+        const editorService = new EditorService();
 
         const language = await vscode.window.showInputBox({
             prompt: 'Enter language for the source block (e.g., csharp, java, python)',

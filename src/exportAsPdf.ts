@@ -6,11 +6,14 @@ import * as tar from 'tar-stream';
 import * as stream from 'stream';
 
 const outputChannel = vscode.window.createOutputChannel("AsciiDoc PDF Export");
-const docker = new Docker(); // Connects automatically to the local Docker daemon
+const docker = new Docker();
 
 /**
- * Handles the prompt and preparation of the theme parameter.
- * Returns the arguments for Docker and optionally the path to the temporary file (for cleanup).
+ * Handles theme parameter prompting and preparation.
+ * Returns Docker arguments and an optional temporary file path for cleanup.
+ * @param dirPath - The directory containing the source file.
+ * @param baseName - The filename without extension.
+ * @returns Object containing theme arguments and optional temp theme path.
  */
 async function getThemeParameter(dirPath: string, baseName: string): Promise<{ themeArgs: string[], tempThemePath?: string }> {
     let tempThemePath: string | undefined = undefined;
@@ -19,7 +22,6 @@ async function getThemeParameter(dirPath: string, baseName: string): Promise<{ t
 
     const defaultThemePath = path.join(dirPath, `${baseName}.yml`);
 
-    // 1. Theme Check: Same name (.yml)
     if (fs.existsSync(defaultThemePath)) {
         const answer = await vscode.window.showInformationMessage(
             `Should I use ${baseName}.yml as theme file?`, 'Yes', 'No'
@@ -30,7 +32,6 @@ async function getThemeParameter(dirPath: string, baseName: string): Promise<{ t
         }
     }
 
-    // 2. Theme Check: Load template?
     if (!useTheme) {
         const answer = await vscode.window.showInformationMessage(
             `Do you want to load a theme template?`, 'Yes', 'No'
@@ -45,7 +46,7 @@ async function getThemeParameter(dirPath: string, baseName: string): Promise<{ t
             if (selectedFiles && selectedFiles.length > 0) {
                 const selectedThemePath = selectedFiles[0].fsPath;
 
-                // Check if the file is already inside the workspace (dirPath)
+                // Check if the file is already inside the workspace directory
                 if (selectedThemePath.toLowerCase().startsWith(dirPath.toLowerCase())) {
                     const relThemePath = path.relative(dirPath, selectedThemePath).replace(/\\/g, '/');
                     themeArgs = ['--theme', relThemePath];
@@ -65,13 +66,13 @@ async function getThemeParameter(dirPath: string, baseName: string): Promise<{ t
 }
 
 /**
- * Checks if the image exists, otherwise builds it in-memory.
+ * Verifies Docker image existence and builds it in-memory if missing.
  */
 async function ensureDockerImage(): Promise<void> {
     try {
         await docker.getImage('asciidoctor-pandoc:latest').inspect();
         outputChannel.appendLine('[INFO] Docker image "asciidoctor-pandoc" already exists.');
-        return; // Image exists, we can abort early
+        return;
     } catch (e) {
         outputChannel.appendLine('[INFO] Docker image not found. Building image (in-memory)...');
     }
@@ -103,7 +104,11 @@ CMD ["sh"]
 }
 
 /**
- * Starts the container and streams the output.
+ * Creates and runs the AsciiDoc container, streaming logs to the output channel.
+ * @param dirPath - The workspace directory path.
+ * @param fileName - The source filename.
+ * @param targetPdf - The destination PDF filename.
+ * @param themeParam - Array of theme-related Docker arguments.
  */
 async function runAsciidoctorContainer(
     dirPath: string,
@@ -112,7 +117,6 @@ async function runAsciidoctorContainer(
     themeParam: string[]
 ): Promise<void> {
 
-    // Safely build the command array (prevent shell injection)
     const cmd = [
         'asciidoctor-pdf',
         ...themeParam,
@@ -127,18 +131,16 @@ async function runAsciidoctorContainer(
 
     outputChannel.appendLine(`[EXEC] asciidoctor-pdf parameters: ${cmd.join(' ')}`);
 
-    // Configure container
     const container = await docker.createContainer({
         Image: 'asciidoctor-pandoc',
         Cmd: cmd,
         HostConfig: {
-            AutoRemove: true, // Container will be removed after completion (--rm)
-            Binds: [`${dirPath}:/documents`] // Mounts the workspace (-v)
+            AutoRemove: true,
+            Binds: [`${dirPath}:/documents`]
         },
         WorkingDir: '/documents'
     });
 
-    // Intercept output streams (stdout and stderr)
     const logStream = new stream.PassThrough();
     logStream.on('data', (chunk) => {
         outputChannel.append(chunk.toString('utf8'));
@@ -147,10 +149,8 @@ async function runAsciidoctorContainer(
     const streamAttach = await container.attach({ stream: true, stdout: true, stderr: true });
     container.modem.demuxStream(streamAttach, logStream, logStream);
 
-    // Start container
     await container.start();
 
-    // Wait until the process inside the container has finished
     const data = await container.wait();
     if (data.StatusCode !== 0) {
         throw new Error(`The conversion process failed (Exit Code: ${data.StatusCode}).`);
@@ -158,6 +158,10 @@ async function runAsciidoctorContainer(
 }
 
 
+/**
+ * Orchestrates the PDF export workflow for a given file URI.
+ * @param clickedUri - The VS Code URI of the file to convert.
+ */
 export async function exportAsPdf(clickedUri: vscode.Uri) {
     if (!clickedUri) {
         vscode.window.showErrorMessage('Please call this command via the File Explorer.');
@@ -173,10 +177,8 @@ export async function exportAsPdf(clickedUri: vscode.Uri) {
     outputChannel.show();
     outputChannel.appendLine(`Starting PDF export for ${fileName}...`);
 
-    // Fetch the theme parameters and optional temp file path
     const { themeArgs, tempThemePath } = await getThemeParameter(dirPath, baseName);
 
-    // 3. Execution with progress notification
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: `Converting ${fileName} to PDF...`,
@@ -186,7 +188,6 @@ export async function exportAsPdf(clickedUri: vscode.Uri) {
             await docker.ping();
             await ensureDockerImage();
 
-            // themeArgs are passed here
             await runAsciidoctorContainer(dirPath, fileName, targetPdf, themeArgs);
 
             const cacheFolder = path.join(dirPath, '.asciidoctor');
@@ -198,14 +199,14 @@ export async function exportAsPdf(clickedUri: vscode.Uri) {
             outputChannel.appendLine('[INFO] Done!');
         } catch (error: any) {
             if (error.syscall == 'connect') {
-                vscode.window.showErrorMessage("Unable to access docker. Run 'docker ps' in the terminal to check if docker is running and if you have the necessary permissions.");
-            }
-            else {
+                vscode.window.showErrorMessage(
+                    "Unable to access docker. Run 'docker ps' in the terminal to check if docker is running and if you have the necessary permissions."
+                );
+            } else {
                 vscode.window.showErrorMessage(error.message || 'Error during PDF export. Check the output channel for details.');
             }
             outputChannel.appendLine(`[ABORT] ${error.message}`);
         } finally {
-            // tempThemePath is used here for cleanup
             if (tempThemePath && fs.existsSync(tempThemePath)) {
                 try {
                     fs.unlinkSync(tempThemePath);

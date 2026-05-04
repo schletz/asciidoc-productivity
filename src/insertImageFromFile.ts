@@ -1,11 +1,15 @@
 import * as vscode from 'vscode';
 import EditorService from './EditorService';
 
-export async function insertImageFromFile() {
+/**
+ * Inserts an image into the current document by prompting the user to select a file.
+ * @returns {Promise<void>} A promise that resolves when the operation completes or fails.
+ */
+export async function insertImageFromFile(): Promise<void> {
     try {
         const editorService = new EditorService();
 
-        // We use the encapsulated logic from the service
+        // Retrieve the selected image path from the system dialog
         const imagePath = await editorService.showOpenDialog({
             canSelectMany: false,
             openLabel: 'Select image',
@@ -13,11 +17,11 @@ export async function insertImageFromFile() {
         });
 
         if (imagePath) {
+            // Convert the absolute path to a document-relative path for AsciiDoc compatibility
             const relativePath = editorService.getRelativeAsciiDocPath(imagePath);
             await editorService.insertAtCurrentPosition(`image::${relativePath}[]\n`);
         }
-    }
-    catch (error: any) {
+    } catch (error: any) {
         if (error instanceof Error) {
             vscode.window.showErrorMessage(error.message);
         } else {

@@ -4,9 +4,6 @@ import LLMService from './LLMService';
 
 const outputChannel = vscode.window.createOutputChannel("LLM-SendToAi");
 
-/**
- * Extends VS Code's QuickPickItem to store additional AI configuration data.
- */
 interface PromptQuickPickItem extends vscode.QuickPickItem {
     systemPrompt: string;
     temperature: number;
@@ -20,10 +17,14 @@ interface PromptQuickPickItem extends vscode.QuickPickItem {
  * @param configurationService - Provides access to stored prompt configurations.
  * @param llmService - Handles communication with the AI model.
  */
-export async function sendToAi(configurationService: ConfigurationService, llmService: LLMService) {
+export async function sendToAi(
+    configurationService: ConfigurationService,
+    llmService: LLMService
+) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
+
         const selection = editor.selection;
         if (selection.isEmpty) {
             vscode.window.showWarningMessage('Please first select the text that should be processed.');
@@ -32,9 +33,10 @@ export async function sendToAi(configurationService: ConfigurationService, llmSe
 
         const textToProcess = editor.document.getText(selection).trim();
         const MAX_CHARS = 16384;
-        // Warn user when selection exceeds typical context window limits to prevent truncation
         if (textToProcess.length > MAX_CHARS) {
-            vscode.window.showWarningMessage(`You have selected ${textToProcess.length} characters. Make sure that the response is not cut off.`);
+            vscode.window.showWarningMessage(
+                `You have selected ${textToProcess.length} characters. Make sure that the response is not cut off.`
+            );
         }
 
         const prompts = configurationService.getSystemPrompts();

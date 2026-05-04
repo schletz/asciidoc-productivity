@@ -11,94 +11,100 @@ export interface SystemPrompt {
  * Provides fallback defaults for all settings and handles merging of custom system prompts.
  */
 export default class ConfigurationService {
-    constructor() { }
+    constructor() {}
 
     /**
      * Retrieves the configured file extensions allowed for processing.
      * Returns a whitespace-stripped, pipe-separated string of extensions.
-     * Falls back to a predefined list if not configured.
+     * @returns The formatted extension string or defaults if unconfigured.
      */
     public getIncludeExtensions(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
         const includeExtensions = config.get<string>(
             'includeExtensions',
-            "cs|csproj|java|rb|json|js|ts|jsx|tsx|py|txt|xml|adoc|md|cmd|sh|sql|yaml|puml");
+            "abap|actionscript|ada|adb|ado|adoc|ads|apache|apex|apib|applescript|as|asm|aug|awk|b|bat|bbc|bf|bib|bicep|biml|bpf|brs|bsl|c|cc|ceylon|cfc|cfm|cjs|clj|cljc|cljs|cls|cmake|cmd|cmm|coffee|conf|coq|cpp|cr|cs|csproj|css|csvs|cu|cxx|cyp|cypher|d|dart|dfy|diff|dig|do|dockerfile|dot|e|ecl|edp|eex|elm|eml|epp|erb|erl|ex|exs|f|f90|factor|feature|frag|fs|fsi|fsx|gd|glsl|go|gql|gradle|graphql|groovy|gv|h|hack|haml|hbs|hcl|hcr|hh|hlsl|hocon|hpp|hql|hrl|hs|htm|html|http|hx|hy|ice|idl|idr|ijs|ini|io|ipf|irb|isbl|j2|janet|java|jinja|jl|js|jsl|json|json5|jsonnet|jsp|jsx|kt|kts|lasso|lean|lhs|liquid|lisp|litcoffee|ll|ls|lsp|lua|lus|lut|m|magik|mak|matlab|md|meson|mjs|mk|ml|mli|mm|mojo|moon|mos|mxml|mzn|ndf|nginx|nim|nix|ocl|os|p|p4|pas|patch|php|phtml|pkb|pks|pl|plist|pm|pony|pp|praat|pro|prolog|properties|proto|ps|ps1|psm1|puml|py|pyw|pyx|q|qml|r|rb|re|rego|rei|res|resi|rkt|rml|robot|rq|rs|s|sas|sass|sc|scala|scm|scpt|scss|sed|service|sh|sieve|slim|sml|sqf|sql|ss|ssh|st|stan|sv|svelte|swift|syz|tap|tcl|tex|tf|thy|tlp|toml|tpl|trigger|ts|tsx|ttcn3|ttl|twig|txt|v|vala|vb|vcl|vert|veryl|vhd|vhdl|vim|vm|vue|wlk|xml|xojo_code|xpath|xq|xquery|yaml|yang|yml|zig"
+        );
+
         return includeExtensions.replace(/\s+/g, '');
     }
 
     /**
      * Retrieves the list of directories to exclude from analysis.
-     * Normalizes all directory names to lowercase for case-insensitive matching.
-     * Falls back to a default exclusion list if not configured.
+     * Normalizes names to lowercase for case-insensitive matching.
+     * @returns Array of excluded directory paths or defaults.
      */
     public getExcludedDirectories(): string[] {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
 
         return config.get<string[]>(
-            'excludeDirectories', ['bin', 'obj', 'node_modules'])
-            .map(dir => dir.toLowerCase());
+            'excludeDirectories', ['bin', 'obj', 'node_modules']
+        ).map(dir => dir.toLowerCase());
     }
 
     /**
      * Retrieves the list of files to exclude from analysis.
-     * Normalizes all file names to lowercase for case-insensitive matching.
-     * Falls back to a default exclusion list if not configured.
+     * Normalizes names to lowercase for case-insensitive matching.
+     * @returns Array of excluded file paths or defaults.
      */
     public getExcludedFiles(): string[] {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
 
         return config.get<string[]>(
-            'excludeFiles', ["package-lock.json"])
-            .map(file => file.toLowerCase());
+            'excludeFiles', ["package-lock.json"]
+        ).map(file => file.toLowerCase());
     }
 
     /**
      * Retrieves the base URL endpoint for AI completion requests.
-     * Falls back to a local LM Studio default if not configured.
+     * @returns The API endpoint URL or defaults to local LM Studio.
      */
     public getCompletionsUrl(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
 
         return config.get<string>(
-            'completionsUrl', "http://localhost:1234/v1/chat/completions");
+            'completionsUrl', "http://localhost:1234/v1/chat/completions"
+        );
     }
 
     /**
      * Retrieves the identifier or path of the LLM model to use for completions.
-     * Falls back to a default Qwen model if not configured.
+     * @returns The model identifier string or defaults to Qwen 35B.
      */
     public getLlm(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
 
         return config.get<string>(
-            'llm', "lmstudio-community/Qwen3.6-35B-A3B-GGUF");
+            'llm', "lmstudio-community/Qwen3.6-35B-A3B-GGUF"
+        );
     }
 
     /**
      * Retrieves the maximum number of tokens allowed in AI responses.
-     * Falls back to 4096 if not configured.
+     * @returns The token limit integer or defaults to 4096.
      */
     public getMaxOutputTokens(): number {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
 
         return config.get<number>(
-            'maxOutputTokens', 4096);
+            'maxOutputTokens', 4096
+        );
     }
 
     /**
      * Retrieves the default target language code for text processing tasks.
-     * Falls back to "en-US" if not configured.
+     * @returns The language code string or defaults to "en-US".
      */
     public getDefaultTargetLanguage(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
 
         return config.get<string>(
-            'defaultLanguage', "en-US");
+            'defaultLanguage', "en-US"
+        );
     }
 
     /**
      * Retrieves the API key used for authenticating with external AI services.
-     * Returns an empty string if no key is configured.
+     * @returns The API key string or empty string if not configured.
      */
     public getApiKey(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -108,6 +114,7 @@ export default class ConfigurationService {
     /**
      * Merges user-defined system prompts with built-in defaults.
      * User-provided prompts take precedence; default prompts are appended only if their names do not conflict.
+     * @returns Array of combined system prompt objects.
      */
     public getSystemPrompts(): SystemPrompt[] {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -131,6 +138,7 @@ export default class ConfigurationService {
         ];
 
         const configValue = config.inspect<SystemPrompt[]>('systemPrompts');
+        // Prioritize global settings over workspace settings for user prompts
         const userPrompts = configValue?.globalValue || configValue?.workspaceValue || [];
 
         const combinedPrompts = [...userPrompts];
