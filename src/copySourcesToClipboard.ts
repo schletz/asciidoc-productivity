@@ -6,6 +6,12 @@ import ConfigurationService from './ConfigurationService';
 import { PdfReader } from "pdfreader";
 import { sourceTypes } from './globals';
 
+export type OutputFormat = 'xml' | 'markdown';
+
+interface FormatQuickPickItem extends vscode.QuickPickItem {
+    format: OutputFormat;
+}
+
 /**
  * Extracts raw text content from a DOCX file.
  * @param uri - The URI of the DOCX file to process.
@@ -57,7 +63,7 @@ const parsers: Record<string, (filename: vscode.Uri) => Promise<string>> = {
 };
 
 /**
- * Manages the extraction and formatting of source files into XML format for clipboard storage.
+ * Manages the extraction and formatting of source files into XML or Markdown format for clipboard storage.
  */
 class SourceCopier {
     private parentPath: string;
@@ -68,6 +74,7 @@ class SourceCopier {
     private maxFileSizeBytes = 10_485_760;
     private maxSourceFileSizeBytes = 51_200;
     private output: string;
+    private format: OutputFormat;
     private processedFileCount = 0;
     private processedFilePaths = new Set<string>();
 
@@ -76,15 +83,18 @@ class SourceCopier {
      * @param targets - The list of file or directory URIs to process.
      * @param includeExtensions - Regex pattern for allowed file extensions.
      * @param configService - Configuration service providing exclusion lists.
+     * @param format - Output format to generate ('xml' or 'markdown').
      */
     constructor(
         targets: vscode.Uri[],
         includeExtensions: string,
-        configService: ConfigurationService
+        configService: ConfigurationService,
+        format: OutputFormat
     ) {
         this.extRegex = new RegExp(`^(${includeExtensions})$`, 'i');
         this.excludedFiles = configService.getExcludedFiles();
         this.excludedDirectories = configService.getExcludedDirectories();
+        this.format = format;
 
         if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
             this.parentPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -95,8 +105,11 @@ class SourceCopier {
         }
 
         const now = new Date().toISOString();
-        this.output = `<?xml version="1.0"?>\n` +
-            `<documents root="${this.rootName}" created="${now}">\n\n`;
+        if (this.format === 'xml') {
+            this.output = `<?xml version="1.0"?>\n<documents root="${this.rootName}" created="${now}">\n\n`;
+        } else {
+            this.output = `# ${this.rootName}\n\nCreated: ${now}\n\n`;
+        }
     }
 
     /**
@@ -104,7 +117,6 @@ class SourceCopier {
      * @param targets - The list of URIs to process.
      */
     public async execute(targets: vscode.Uri[]) {
-        // Filter out parent folders when their children are explicitly selected
         const filteredTargets = targets.filter(target => {
             return !targets.some(other => {
                 if (target.fsPath === other.fsPath) { return false; }
@@ -127,30 +139,36 @@ class SourceCopier {
             }
         }
 
-        this.output += `</documents>\n`;
+        if (this.format === 'xml') {
+            this.output += `</documents>\n`;
+        }
 
         await vscode.env.clipboard.writeText(this.output);
 
+        const formatName = this.format === 'xml' ? 'XML' : 'Markdown';
+        const fileExt = this.format === 'xml' ? 'xml' : 'md';
+
         const userChoice = await vscode.window.showInformationMessage(
-            `${this.processedFileCount} files copied as XML. Would you also like to save the content as a file?`,
+            `${this.processedFileCount} files copied as ${formatName}. Would you also like to save the content as a file?`,
             'Yes',
             'No'
         );
 
         if (userChoice === 'Yes') {
+            const filters: { [name: string]: string[] } = {};
+            filters[`${formatName} Files`] = [fileExt];
+            filters['All Files'] = ['*'];
+
             const saveUri = await vscode.window.showSaveDialog({
-                defaultUri: vscode.Uri.file(`${this.rootName}_sources.xml`),
-                filters: {
-                    'XML Files': ['xml'],
-                    'All Files': ['*']
-                },
-                saveLabel: 'Save XML'
+                defaultUri: vscode.Uri.file(`${this.rootName}_sources.${fileExt}`),
+                filters: filters,
+                saveLabel: `Save ${formatName}`
             });
 
             if (saveUri) {
                 const fileData = Buffer.from(this.output, 'utf8');
                 await vscode.workspace.fs.writeFile(saveUri, fileData);
-                vscode.window.showInformationMessage('XML file saved successfully!');
+                vscode.window.showInformationMessage(`${formatName} file saved successfully!`);
             }
         }
     }
@@ -196,8 +214,16 @@ class SourceCopier {
         }
 
         this.processedFilePaths.add(fsPath);
-        const language = sourceTypes[ext] ?? ext
-        this.output += `<file path="${relativePath}" language="${language}">\n<![CDATA[\n${fileContent}\n]]>\n</file>\n\n`;
+        
+        // Use format-neutral language identifier (falls back to extension)
+        const language = sourceTypes[ext] ?? ext;
+
+        if (this.format === 'xml') {
+            this.output += `<file path="${relativePath}" language="${language}">\n<![CDATA[\n${fileContent}\n]]>\n</file>\n\n`;
+        } else {
+            this.output += `## File ${relativePath}\n\n\`\`\`${language}\n${fileContent}\n\`\`\`\n\n`;
+        }
+        
         this.processedFileCount++;
     }
 
@@ -247,6 +273,17 @@ export async function copySourcesToClipboard(
     }
 
     try {
+        const formatSelection = await vscode.window.showQuickPick<FormatQuickPickItem>([
+            { label: 'XML', description: 'Zum Einfügen als Datei in einem Chat.', format: 'xml' },
+            { label: 'Markdown', description: 'Zum Einfügen als Quelle in NotebookLM.', format: 'markdown' }
+        ], {
+            placeHolder: 'Select output format'
+        });
+
+        if (!formatSelection) {
+            return;
+        }
+
         const includeExtensions = await vscode.window.showInputBox({
             prompt: 'Extensions to consider. Regex expression. Example: cs|java',
             value: configurationService.getIncludeExtensions()
@@ -256,7 +293,7 @@ export async function copySourcesToClipboard(
             return;
         }
 
-        const copier = new SourceCopier(targets, includeExtensions, configurationService);
+        const copier = new SourceCopier(targets, includeExtensions, configurationService, formatSelection.format);
         await copier.execute(targets);
 
     } catch (error: any) {

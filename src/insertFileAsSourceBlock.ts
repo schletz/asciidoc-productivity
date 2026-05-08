@@ -18,12 +18,10 @@ export async function insertFileAsSourceBlock(clickedUri: vscode.Uri): Promise<v
         const filePath = clickedUri.fsPath;
         const fileName = path.basename(filePath);
         const ext = path.extname(filePath).replace('.', '').toLowerCase();
-        const sourceHeader = sourceTypes[ext] !== undefined ? sourceTypes[ext] : "[source]";
-
-        if (sourceHeader === "") {
-            vscode.window.showWarningMessage(`Files of type .${ext} cannot be inserted as a source block.`);
-            return;
-        }
+        
+        // Construct the AsciiDoc source header using the format-neutral language identifier
+        const lang = sourceTypes[ext];
+        const sourceHeader = lang ? `[source,${lang}]` : "[source]";
 
         const fileData = await vscode.workspace.fs.readFile(clickedUri);
         const fileContent = Buffer.from(fileData).getStringWithEncodingDetection();
