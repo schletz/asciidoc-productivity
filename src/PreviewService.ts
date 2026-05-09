@@ -101,6 +101,15 @@ export class PreviewService {
         this.setupEventListeners();
         setTimeout(() => this.updateContent(document), 500);
 
+        this.panel.onDidChangeViewState(e => {
+            if (e.webviewPanel.visible) {
+                const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === this.sourceUri?.toString());
+                if (doc) {
+                    this.updateContent(doc);
+                }
+            }
+        }, null, this.disposables);
+
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     }
 
