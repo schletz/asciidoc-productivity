@@ -15,6 +15,7 @@ import LLMService from './LLMService';
 import { showPreview } from './showPreview';
 import { sendToAi } from './sendToAi';
 import { sendFilesToAi } from './sendFilesToAi';
+import { PreviewService } from './PreviewService';
 
 /**
  * Activates the extension by registering all commands and subscribing them to the context.
@@ -71,7 +72,7 @@ export function activate(context: ExtensionContext) {
 
     let showPreviewCmd = commands.registerCommand(
         'asciidoc-productivity.showPreview',
-        () => showPreview(context)
+        async () => await showPreview(context)
     );
 
     let sendFilesToAiCmd = commands.registerCommand(
@@ -100,6 +101,8 @@ export function activate(context: ExtensionContext) {
 }
 
 /**
- * Deactivates the extension. Currently performs no cleanup operations.
+ * Deactivates the extension. Performs cleanup operations such as stopping active Docker containers.
  */
-export function deactivate() { }
+export async function deactivate(): Promise<void> {
+    await PreviewService.getInstance().shutdown();
+}
