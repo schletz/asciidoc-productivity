@@ -68,7 +68,8 @@ const parsers: Record<string, (filename: vscode.Uri) => Promise<string>> = {
 class SourceCopier {
     private parentPath: string;
     private rootName: string;
-    private extRegex: RegExp;
+    private filterRegex: RegExp;
+    private matchExtensionsOnly: boolean;
     private excludedFiles: string[];
     private excludedDirectories: string[];
     private maxFileSizeBytes = 10_485_760;
@@ -79,19 +80,26 @@ class SourceCopier {
     private processedFilePaths = new Set<string>();
 
     /**
-     * Initializes the copier with target URIs, extension filters, and configuration.
+     * Initializes the copier with target URIs, filter pattern, and configuration.
      * @param targets - The list of file or directory URIs to process.
-     * @param includeExtensions - Regex pattern for allowed file extensions.
+     * @param includeFilter - Regex pattern for filtering files. Applied to the file
+     *  extension if `matchExtensionsOnly` is true, otherwise to the relative file path.
+     * @param matchExtensionsOnly - When true the regex is anchored and matched against
+     *  the bare extension; when false the regex is matched against the relative path.
      * @param configService - Configuration service providing exclusion lists.
      * @param format - Output format to generate ('xml' or 'markdown').
      */
     constructor(
         targets: vscode.Uri[],
-        includeExtensions: string,
+        includeFilter: string,
+        matchExtensionsOnly: boolean,
         configService: ConfigurationService,
         format: OutputFormat
     ) {
-        this.extRegex = new RegExp(`^(${includeExtensions})$`, 'i');
+        this.matchExtensionsOnly = matchExtensionsOnly;
+        this.filterRegex = matchExtensionsOnly
+            ? new RegExp(`^(${includeFilter})$`, 'i')
+            : new RegExp(includeFilter, 'i');
         this.excludedFiles = configService.getExcludedFiles();
         this.excludedDirectories = configService.getExcludedDirectories();
         this.format = format;
@@ -188,7 +196,13 @@ class SourceCopier {
         if (this.excludedFiles.includes(name.toLowerCase())) { return; }
 
         const ext = path.extname(name).replace('.', '').toLowerCase();
-        if (!this.extRegex.test(ext)) { return; }
+        let relativePath = path.relative(this.parentPath, fileUri.fsPath).replace(/\\/g, '/');
+        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+            relativePath = name;
+        }
+
+        const filterTarget = this.matchExtensionsOnly ? ext : relativePath;
+        if (!this.filterRegex.test(filterTarget)) { return; }
 
         const fileStat = await vscode.workspace.fs.stat(fileUri);
         const sizeLimit = sourceTypes[ext]
@@ -206,11 +220,6 @@ class SourceCopier {
         }
         else {
             fileContent = `This file was not processed because it has ${fileStat.size} Bytes. This exceeded the size limit of ${sizeLimit} bytes.`
-        }
-
-        let relativePath = path.relative(this.parentPath, fileUri.fsPath).replace(/\\/g, '/');
-        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-            relativePath = name;
         }
 
         this.processedFilePaths.add(fsPath);
@@ -249,6 +258,53 @@ class SourceCopier {
     }
 }
 
+interface FilterInput {
+    pattern: string;
+    matchExtensionsOnly: boolean;
+}
+
+/**
+ * Shows a QuickPick that combines a regex input field with a toggle controlling
+ * whether the regex is matched against the file extension only or the full
+ * relative path.
+ * @param defaultValue - Initial regex string shown in the input field.
+ * @returns The entered pattern and toggle state, or undefined if cancelled.
+ */
+function promptForFilter(defaultValue: string): Promise<FilterInput | undefined> {
+    return new Promise(resolve => {
+        const quickPick = vscode.window.createQuickPick();
+        quickPick.title = 'Filter files';
+        quickPick.placeholder = 'Regex expression. Example: cs|java';
+        quickPick.value = defaultValue;
+        quickPick.canSelectMany = true;
+        quickPick.ignoreFocusOut = true;
+
+        const extOnlyItem: vscode.QuickPickItem = {
+            label: 'Search only in extensions',
+            description: 'When unchecked, the regex is applied to the relative file path',
+            alwaysShow: true
+        };
+        quickPick.items = [extOnlyItem];
+        quickPick.selectedItems = [extOnlyItem];
+
+        let accepted = false;
+        quickPick.onDidAccept(() => {
+            accepted = true;
+            const matchExtensionsOnly = quickPick.selectedItems.includes(extOnlyItem);
+            const pattern = quickPick.value;
+            quickPick.hide();
+            resolve({ pattern, matchExtensionsOnly });
+        });
+        quickPick.onDidHide(() => {
+            quickPick.dispose();
+            if (!accepted) {
+                resolve(undefined);
+            }
+        });
+        quickPick.show();
+    });
+}
+
 /**
  * Entry point for the copy sources command. Collects targets and initiates processing.
  * @param clickedUri - The URI of a single clicked item.
@@ -284,16 +340,18 @@ export async function copySourcesToClipboard(
             return;
         }
 
-        const includeExtensions = await vscode.window.showInputBox({
-            prompt: 'Extensions to consider. Regex expression. Example: cs|java',
-            value: configurationService.getIncludeExtensions()
-        });
-
-        if (includeExtensions === undefined) {
+        const filterInput = await promptForFilter(configurationService.getIncludeExtensions());
+        if (filterInput === undefined) {
             return;
         }
 
-        const copier = new SourceCopier(targets, includeExtensions, configurationService, formatSelection.format);
+        const copier = new SourceCopier(
+            targets,
+            filterInput.pattern,
+            filterInput.matchExtensionsOnly,
+            configurationService,
+            formatSelection.format
+        );
         await copier.execute(targets);
 
     } catch (error: any) {
