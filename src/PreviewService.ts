@@ -45,31 +45,48 @@ export class PreviewService {
         this.sourceUri = editor.document.uri;
 
         if (!this.panel) {
-            await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: 'Starting local Kroki container for rendering...',
-                cancellable: false
-            }, async () => {
-                try {
-                    await this.krokiManager.start();
-                } catch (error: any) {
-                    if (error.syscall === 'connect') {
-                        vscode.window.showErrorMessage(
-                            "Unable to access docker. Preview will open without PlantUML support. Run 'docker ps' in the terminal to check if docker is running and if you have the necessary permissions."
-                        );
-                    } else {
-                        vscode.window.showErrorMessage('Failed to start local Kroki container. Preview will open without PlantUML support. ' + error.message);
-                    }
-                    // We catch the error to prevent double notifications and allow fallback preview.
-                    outputChannel.appendLine(`[ERROR] Fallback mode: Preview will open without PlantUML support.`);
-                }
-            });
-
+            // Show the preview immediately so the user is not blocked while the Kroki container boots.
+            // PlantUML diagrams render later once the container is ready (see startKrokiInBackground).
             this.createPanel(context, editor.document);
+            this.startKrokiInBackground();
         } else {
             this.panel.reveal(vscode.ViewColumn.Beside);
             this.updateContent(editor.document);
         }
+    }
+
+    /**
+     * Starts the local Kroki container in the background and refreshes the preview once it is ready.
+     * The preview is already visible at this point; only the PlantUML diagrams (whose image URLs point
+     * to localhost and are invalid until the container responds) become valid after the refresh.
+     */
+    private startKrokiInBackground(): void {
+        void vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Starting local Kroki container for rendering...',
+            cancellable: false
+        }, async () => {
+            try {
+                await this.krokiManager.start();
+            } catch (error: any) {
+                if (error.syscall === 'connect') {
+                    vscode.window.showErrorMessage(
+                        "Unable to access docker. Preview will open without PlantUML support. Run 'docker ps' in the terminal to check if docker is running and if you have the necessary permissions."
+                    );
+                } else {
+                    vscode.window.showErrorMessage('Failed to start local Kroki container. Preview will open without PlantUML support. ' + error.message);
+                }
+                // We catch the error to prevent double notifications and allow fallback preview.
+                outputChannel.appendLine(`[ERROR] Fallback mode: Preview will open without PlantUML support.`);
+                return;
+            }
+
+            // Container is ready: re-render so the diagram image URLs become valid and diagrams appear.
+            const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === this.sourceUri?.toString());
+            if (doc) {
+                this.updateContent(doc);
+            }
+        });
     }
 
     private createPanel(context: vscode.ExtensionContext, document: vscode.TextDocument): void {
