@@ -13,6 +13,19 @@ interface FormatQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
+ * Regex based filter criteria. Every provided pattern represents an active filter;
+ * active filters are combined with AND. Omitted properties are treated as inactive.
+ */
+interface FilterCriteria {
+    /** Regex matched against the bare file extension (anchored). */
+    extensions?: string;
+    /** Regex matched against the relative file path. */
+    filenames?: string;
+    /** Regex matched against the file content. */
+    content?: string;
+}
+
+/**
  * Extracts raw text content from a DOCX file.
  * @param uri - The URI of the DOCX file to process.
  * @returns A promise resolving to the extracted plain text string.
@@ -68,8 +81,9 @@ const parsers: Record<string, (filename: vscode.Uri) => Promise<string>> = {
 class SourceCopier {
     private parentPath: string;
     private rootName: string;
-    private filterRegex: RegExp;
-    private matchExtensionsOnly: boolean;
+    private extensionsRegex?: RegExp;
+    private filenamesRegex?: RegExp;
+    private contentRegex?: RegExp;
     private excludedFiles: string[];
     private excludedDirectories: string[];
     private maxFileSizeBytes = 10_485_760;
@@ -80,26 +94,31 @@ class SourceCopier {
     private processedFilePaths = new Set<string>();
 
     /**
-     * Initializes the copier with target URIs, filter pattern, and configuration.
+     * Initializes the copier with target URIs, filter criteria, and configuration.
      * @param targets - The list of file or directory URIs to process.
-     * @param includeFilter - Regex pattern for filtering files. Applied to the file
-     *  extension if `matchExtensionsOnly` is true, otherwise to the relative file path.
-     * @param matchExtensionsOnly - When true the regex is anchored and matched against
-     *  the bare extension; when false the regex is matched against the relative path.
+     * @param filter - Filter criteria. Each provided regex acts as an active filter and
+     *  all active filters are combined with AND. `extensions` is anchored and matched
+     *  against the bare file extension, `filenames` is matched against the relative file
+     *  path and `content` is matched against the file content (with `.` matching newlines).
      * @param configService - Configuration service providing exclusion lists.
      * @param format - Output format to generate ('xml' or 'markdown').
      */
     constructor(
         targets: vscode.Uri[],
-        includeFilter: string,
-        matchExtensionsOnly: boolean,
+        filter: FilterCriteria,
         configService: ConfigurationService,
         format: OutputFormat
     ) {
-        this.matchExtensionsOnly = matchExtensionsOnly;
-        this.filterRegex = matchExtensionsOnly
-            ? new RegExp(`^(${includeFilter})$`, 'i')
-            : new RegExp(includeFilter, 'i');
+        if (filter.extensions) {
+            this.extensionsRegex = new RegExp(`^(${filter.extensions})$`, 'i');
+        }
+        if (filter.filenames) {
+            this.filenamesRegex = new RegExp(filter.filenames, 'i');
+        }
+        if (filter.content) {
+            // The 's' (dotAll) flag lets '.' also match newline characters.
+            this.contentRegex = new RegExp(filter.content, 'is');
+        }
         this.excludedFiles = configService.getExcludedFiles();
         this.excludedDirectories = configService.getExcludedDirectories();
         this.format = format;
@@ -201,8 +220,8 @@ class SourceCopier {
             relativePath = name;
         }
 
-        const filterTarget = this.matchExtensionsOnly ? ext : relativePath;
-        if (!this.filterRegex.test(filterTarget)) { return; }
+        if (this.extensionsRegex && !this.extensionsRegex.test(ext)) { return; }
+        if (this.filenamesRegex && !this.filenamesRegex.test(relativePath)) { return; }
 
         const fileStat = await vscode.workspace.fs.stat(fileUri);
         const sizeLimit = sourceTypes[ext]
@@ -221,6 +240,8 @@ class SourceCopier {
         else {
             fileContent = `This file was not processed because it has ${fileStat.size} Bytes. This exceeded the size limit of ${sizeLimit} bytes.`
         }
+
+        if (this.contentRegex && !this.contentRegex.test(fileContent)) { return; }
 
         this.processedFilePaths.add(fsPath);
         
@@ -258,49 +279,113 @@ class SourceCopier {
     }
 }
 
-interface FilterInput {
-    pattern: string;
-    matchExtensionsOnly: boolean;
-}
+/** Labels identifying the selectable filter types in the QuickPick. */
+const FILTER_EXTENSIONS = 'Search in Extensions';
+const FILTER_FILENAMES = 'Match Filenames';
+const FILTER_CONTENT = 'Match Content';
 
 /**
- * Shows a QuickPick that combines a regex input field with a toggle controlling
- * whether the regex is matched against the file extension only or the full
- * relative path.
- * @param defaultValue - Initial regex string shown in the input field.
- * @returns The entered pattern and toggle state, or undefined if cancelled.
+ * Prompts the user for a single regex value.
+ * @param prompt - Description shown above the input field.
+ * @param value - Initial value prefilled in the input field.
+ * @returns The entered regex, or undefined if cancelled.
  */
-function promptForFilter(defaultValue: string): Promise<FilterInput | undefined> {
-    return new Promise(resolve => {
+function promptForRegex(prompt: string, value: string): Thenable<string | undefined> {
+    return vscode.window.showInputBox({
+        prompt,
+        value,
+        ignoreFocusOut: true
+    });
+}
+
+/** Ordered metadata describing each selectable filter type and where its regex applies. */
+const FILTER_DEFINITIONS: { label: string; key: keyof FilterCriteria; detail: string }[] = [
+    { label: FILTER_EXTENSIONS, key: 'extensions', detail: 'Regex applied to the file extension' },
+    { label: FILTER_FILENAMES, key: 'filenames', detail: 'Regex applied to the relative file path' },
+    { label: FILTER_CONTENT, key: 'content', detail: 'Regex applied to the file content (dot matches newline)' }
+];
+
+/**
+ * Lets the user select one or more filter types and edit an individual regex for each
+ * in a single form. Selected filters are combined with AND, so e.g. selecting the
+ * extensions filter with `cs` and the content filter with `PersonsController` matches
+ * all `.cs` files containing `PersonsController`. The extensions filter is preselected
+ * and prefilled with the configured default; the others start empty and unselected.
+ * @param defaultExtensions - Default regex prefilled for the extensions filter.
+ * @returns The collected filter criteria, or undefined if cancelled.
+ */
+function promptForFilters(defaultExtensions: string): Promise<FilterCriteria | undefined> {
+    return new Promise<FilterCriteria | undefined>(resolve => {
+        const editButton: vscode.QuickInputButton = {
+            iconPath: new vscode.ThemeIcon('edit'),
+            tooltip: 'Edit regular expression'
+        };
+
+        // Current regex per filter type, keyed by label.
+        const patterns: Record<string, string> = {
+            [FILTER_EXTENSIONS]: defaultExtensions,
+            [FILTER_FILENAMES]: '',
+            [FILTER_CONTENT]: ''
+        };
+
+        const buildItems = (): vscode.QuickPickItem[] => FILTER_DEFINITIONS.map(definition => ({
+            label: definition.label,
+            description: patterns[definition.label]
+                ? patterns[definition.label]
+                : '(no pattern — use the ✎ button to set one)',
+            detail: definition.detail,
+            buttons: [editButton]
+        }));
+
         const quickPick = vscode.window.createQuickPick();
-        quickPick.title = 'Filter files';
-        quickPick.placeholder = 'Regex expression. Example: cs|java';
-        quickPick.value = defaultValue;
+        quickPick.title = 'Filter files (selected filters are combined with AND)';
+        quickPick.placeholder = 'Check the filters to apply; use the ✎ button to edit each regex';
         quickPick.canSelectMany = true;
         quickPick.ignoreFocusOut = true;
-
-        const extOnlyItem: vscode.QuickPickItem = {
-            label: 'Search only in extensions',
-            description: 'When unchecked, the regex is applied to the relative file path',
-            alwaysShow: true
-        };
-        quickPick.items = [extOnlyItem];
-        quickPick.selectedItems = [extOnlyItem];
+        quickPick.items = buildItems();
+        // Preselect the extensions filter.
+        quickPick.selectedItems = quickPick.items.filter(item => item.label === FILTER_EXTENSIONS);
 
         let accepted = false;
+        // Guards onDidHide against the temporary hide triggered while a nested input box is shown.
+        let editing = false;
+
+        quickPick.onDidTriggerItemButton(async event => {
+            const label = event.item.label;
+            editing = true;
+            const value = await promptForRegex(`${label}: regular expression`, patterns[label]);
+            editing = false;
+
+            if (value !== undefined) {
+                patterns[label] = value;
+                const activeLabels = new Set(quickPick.selectedItems.map(item => item.label));
+                // Editing a regex implies the user wants that filter active.
+                if (value) { activeLabels.add(label); }
+                quickPick.items = buildItems();
+                quickPick.selectedItems = quickPick.items.filter(item => activeLabels.has(item.label));
+            }
+            quickPick.show();
+        });
+
         quickPick.onDidAccept(() => {
             accepted = true;
-            const matchExtensionsOnly = quickPick.selectedItems.includes(extOnlyItem);
-            const pattern = quickPick.value;
-            quickPick.hide();
-            resolve({ pattern, matchExtensionsOnly });
-        });
-        quickPick.onDidHide(() => {
-            quickPick.dispose();
-            if (!accepted) {
-                resolve(undefined);
+            const criteria: FilterCriteria = {};
+            const selectedLabels = new Set(quickPick.selectedItems.map(item => item.label));
+            for (const definition of FILTER_DEFINITIONS) {
+                if (selectedLabels.has(definition.label) && patterns[definition.label]) {
+                    criteria[definition.key] = patterns[definition.label];
+                }
             }
+            quickPick.hide();
+            resolve(criteria);
         });
+
+        quickPick.onDidHide(() => {
+            if (editing) { return; }
+            quickPick.dispose();
+            if (!accepted) { resolve(undefined); }
+        });
+
         quickPick.show();
     });
 }
@@ -340,15 +425,14 @@ export async function copySourcesToClipboard(
             return;
         }
 
-        const filterInput = await promptForFilter(configurationService.getIncludeExtensions());
-        if (filterInput === undefined) {
+        const filter = await promptForFilters(configurationService.getIncludeExtensions());
+        if (filter === undefined) {
             return;
         }
 
         const copier = new SourceCopier(
             targets,
-            filterInput.pattern,
-            filterInput.matchExtensionsOnly,
+            filter,
             configurationService,
             formatSelection.format
         );

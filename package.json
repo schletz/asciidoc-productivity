@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "icon": "icon.png",
   "repository": {
     "type": "git",
