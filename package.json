@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "icon": "icon.png",
   "repository": {
     "type": "git",
@@ -116,6 +116,10 @@
         "title": "Insert clipboard as table"
       },
       {
+        "command": "asciidoc-productivity.insertMarkdownTable",
+        "title": "Insert clipboard as markdown table"
+      },
+      {
         "command": "asciidoc-productivity.insertImageFromFile",
         "title": "Insert image from file"
       },
@@ -178,6 +182,11 @@
         {
           "command": "asciidoc-productivity.insertTsvTable",
           "when": "editorLangId == asciidoc",
+          "group": "navigation@2"
+        },
+        {
+          "command": "asciidoc-productivity.insertMarkdownTable",
+          "when": "editorLangId == markdown",
           "group": "navigation@2"
         },
         {

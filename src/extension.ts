@@ -3,6 +3,7 @@ import './bufferExtensions';
 import { insertSourceBlock } from './insertSourceBlock';
 import { insertImageBlock } from './insertImageBlock';
 import { insertTsvTable } from './insertTsvTable';
+import { insertMarkdownTable } from './insertMarkdownTable';
 import { insertImageFromFile } from './insertImageFromFile';
 import { insertImageFromClipboard } from './insertImageFromClipboard';
 import { insertFileAsSourceBlock } from './insertFileAsSourceBlock';
@@ -30,6 +31,9 @@ export function activate(context: ExtensionContext) {
 
     let insertTsvTableCmd = commands.registerCommand(
         'asciidoc-productivity.insertTsvTable', insertTsvTable);
+
+    let insertMarkdownTableCmd = commands.registerCommand(
+        'asciidoc-productivity.insertMarkdownTable', insertMarkdownTable);
 
     let insertImageFromFileCmd = commands.registerCommand(
         'asciidoc-productivity.insertImageFromFile', insertImageFromFile);
@@ -88,6 +92,7 @@ export function activate(context: ExtensionContext) {
         insertSourceBlockCmd,
         insertImageBlockCmd,
         insertTsvTableCmd,
+        insertMarkdownTableCmd,
         insertImageFromFileCmd,
         insertImageFromClipboardCmd,
         insertFileAsSourceBlockCmd,
