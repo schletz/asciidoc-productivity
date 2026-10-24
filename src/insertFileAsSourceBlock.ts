@@ -1,38 +1,36 @@
 import * as vscode from 'vscode';
 import EditorService from './EditorService';
+import MarkupSyntax from './MarkupSyntax';
 import path from 'path';
 import { sourceTypes } from './globals';
 
 /**
- * Inserts the content of a file as an AsciiDoc source block at the current cursor position.
+ * Inserts the content of a file as a source block at the current cursor position.
+ * @param editorService The active editor that receives the block.
+ * @param syntax Markup of the active document.
  * @param clickedUri The URI of the target file, typically triggered from the explorer view.
+ * @throws Error if no file URI is given, e.g. when called from the command palette.
  */
-export async function insertFileAsSourceBlock(clickedUri: vscode.Uri): Promise<void> {
+export async function insertFileAsSourceBlock(
+    editorService: EditorService,
+    syntax: MarkupSyntax,
+    clickedUri?: vscode.Uri
+): Promise<void> {
     if (!clickedUri) {
-        vscode.window.showErrorMessage('This command must be called from the file explorer.');
-        return;
+        throw new Error('This command must be called from the file explorer.');
     }
 
-    try {
-        const editorService = new EditorService();
-        const filePath = clickedUri.fsPath;
-        const fileName = path.basename(filePath);
-        const ext = path.extname(filePath).replace('.', '').toLowerCase();
-        
-        // Construct the AsciiDoc source header using the format-neutral language identifier
-        const lang = sourceTypes[ext];
-        const sourceHeader = lang ? `[source,${lang}]` : "[source]";
+    const filePath = clickedUri.fsPath;
+    const fileName = path.basename(filePath);
+    const ext = path.extname(filePath).replace('.', '').toLowerCase();
 
-        const fileData = await vscode.workspace.fs.readFile(clickedUri);
-        const fileContent = Buffer.from(fileData).getStringWithEncodingDetection();
-        const relativePath = editorService.getRelativeAsciiDocPath(filePath);
-        const block = `.link:${relativePath}[→ ${fileName}]\n${sourceHeader}\n----\n${fileContent}\n----\n`;
+    // The format-neutral language identifier works for AsciiDoc and Markdown alike.
+    const lang: string | undefined = sourceTypes[ext];
 
-        await editorService.insertAtCurrentPosition(block);
-        await editorService.focusEditor();
-    } catch (error: any) {
-        if (error instanceof Error) {
-            vscode.window.showErrorMessage(error.message);
-        }
-    }
+    const fileData = await vscode.workspace.fs.readFile(clickedUri);
+    const fileContent = Buffer.from(fileData).getStringWithEncodingDetection();
+    const relativePath = editorService.getRelativePath(filePath);
+
+    await editorService.insertAtCurrentPosition(syntax.fileSourceBlock(fileContent, lang, relativePath, fileName));
+    await editorService.focusEditor();
 }

@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "icon": "icon.png",
   "repository": {
     "type": "git",
@@ -63,7 +63,7 @@
           "default": 4096,
           "description": "Maximum token count of the response."
         },
-        "asciidoc-productivity.getDefaultTargetLanguage": {
+        "asciidoc-productivity.defaultLanguage": {
           "type": "string",
           "default": "en-US",
           "description": "Default target language for translations."
@@ -116,10 +116,6 @@
         "title": "Insert clipboard as table"
       },
       {
-        "command": "asciidoc-productivity.insertMarkdownTable",
-        "title": "Insert clipboard as markdown table"
-      },
-      {
         "command": "asciidoc-productivity.insertImageFromFile",
         "title": "Insert image from file"
       },
@@ -138,7 +134,11 @@
       },
       {
         "command": "asciidoc-productivity.copyAsTsv",
-        "title": "Copy AsciiDoc Table as TSV to clipboard"
+        "title": "Copy table as TSV to clipboard"
+      },
+      {
+        "command": "asciidoc-productivity.formatTable",
+        "title": "Format table"
       },
       {
         "command": "asciidoc-productivity.translate",
@@ -176,37 +176,37 @@
       "editor/context": [
         {
           "command": "asciidoc-productivity.insertSourceBlock",
-          "when": "editorLangId == asciidoc",
+          "when": "editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i",
           "group": "navigation@1"
         },
         {
           "command": "asciidoc-productivity.insertTsvTable",
-          "when": "editorLangId == asciidoc",
-          "group": "navigation@2"
-        },
-        {
-          "command": "asciidoc-productivity.insertMarkdownTable",
-          "when": "editorLangId == markdown",
+          "when": "editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i",
           "group": "navigation@2"
         },
         {
           "command": "asciidoc-productivity.insertImageBlock",
-          "when": "editorLangId == asciidoc",
+          "when": "editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i",
           "group": "navigation@3"
         },
         {
           "command": "asciidoc-productivity.insertImageFromFile",
-          "when": "editorLangId == asciidoc",
+          "when": "editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i",
           "group": "navigation@4"
         },
         {
           "command": "asciidoc-productivity.insertImageFromClipboard",
-          "when": "editorLangId == asciidoc",
+          "when": "editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i",
           "group": "navigation@5"
         },
         {
           "command": "asciidoc-productivity.copyAsTsv",
-          "when": "editorLangId == asciidoc",
+          "when": "editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i",
+          "group": "navigation@6"
+        },
+        {
+          "command": "asciidoc-productivity.formatTable",
+          "when": "editorLangId == markdown || resourceExtname =~ /^\\.(md|markdown)$/i",
           "group": "navigation@6"
         },
         {
@@ -263,11 +263,13 @@
     "@types/dockerode": "^4.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/sinon": "^22.0.1",
     "@types/tar-stream": "^3.1.4",
     "@types/vscode": "^1.110.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.3",
+    "sinon": "^22.1.0",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",

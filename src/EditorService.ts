@@ -44,6 +44,23 @@ export default class EditorService {
     }
 
     /**
+     * Replaces whole lines of the document. Unchanged text is not written, so the document
+     * does not become dirty without a reason.
+     * @param startLine First line to replace, zero-based.
+     * @param endLine Last line to replace, zero-based and inclusive; its line break is kept.
+     * @param text Replacement text; VS Code converts its line breaks to the document's EOL.
+     * @returns True if the text is in place, false if the edit was rejected.
+     */
+    public async replaceLines(startLine: number, endLine: number, text: string): Promise<boolean> {
+        const document = this.editor.document;
+        const range = new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).text.length);
+        if (document.getText(range).replace(/\r\n/g, '\n') === text) {
+            return true;
+        }
+        return this.editor.edit(editBuilder => editBuilder.replace(range, text));
+    }
+
+    /**
      * Retrieves the directory URI for the current document or workspace fallback.
      * @param useWorkspaceAsDefault When true, returns the first workspace folder if the document is not a file. Defaults to true.
      * @returns The target URI, or undefined if no valid path can be resolved.
@@ -89,11 +106,11 @@ export default class EditorService {
 
     /**
      * Calculates a forward-slash relative path from the current document's directory to a target path.
-     * Normalizes backslashes for AsciiDoc compatibility.
+     * Normalizes backslashes, as AsciiDoc and Markdown both expect forward slashes.
      * @param targetPath The absolute or relative path to resolve against the current document.
      * @returns The computed relative path string.
      */
-    public getRelativeAsciiDocPath(targetPath: string): string {
+    public getRelativePath(targetPath: string): string {
         const docPath = path.dirname(this.editor.document.uri.fsPath);
         return path.relative(docPath, targetPath).replace(/\\/g, '/');
     }

@@ -4,47 +4,54 @@
 
 This extension turbocharges your AsciiDoc editing experience in Visual Studio Code, providing smart tools for handling images, source code snippets, data tables, LLM integrations, and PDF exports.
 
+**Markdown support:** Features 1 to 6 and 8 also work in Markdown documents, feature 7 is Markdown only. The extension inserts Markdown syntax there (fenced code blocks, `![alt](path)` images, pipe tables). The document type is taken from the editor language, or from the file extension (`.adoc`, `.asciidoc`, `.asc`, `.md`, `.markdown`) if no AsciiDoc extension is installed.
+
 ## 1. Insert source code from clipboard (Insert as source block)
-Copy any code. Right-click in your AsciiDoc document and select _Insert as source block_.
-An input line will open at the top where you can type the programming language (e.g., _csharp_, _java_, _python_). The code will then be inserted as a perfectly formatted AsciiDoc source block.
+Copy any code. Right-click in your AsciiDoc or Markdown document and select _Insert clipboard as source block_.
+An input line will open at the top where you can type the programming language (e.g., _csharp_, _java_, _python_). The code will then be inserted as a perfectly formatted AsciiDoc source block or Markdown code fence.
 
 ## 2. Insert TSV tables (Insert as tsv table)
-Copy table-like data (e.g., directly from Excel) to your clipboard. Select _Insert as tsv table_ from the right-click menu.
-The extension automatically detects the number of columns (based on the tabs) and generates a completed AsciiDoc table block in TSV format.
+Copy table-like data (e.g., directly from Excel) to your clipboard. Select _Insert clipboard as table_ from the right-click menu.
+The extension automatically detects the number of columns (based on the tabs) and generates a completed AsciiDoc table block or an aligned Markdown table.
 
 ## 3. Insert image from local file (Insert image from file)
 Do you want to embed an image located on your hard drive? Select _Insert image from file_.
-A dialog window opens in the current folder. Select your image. The extension automatically calculates the _relative path_ from your document to the image and inserts the correct `image::path/to/image.png[]` syntax.
-*Note: To ensure the path matches the .adoc file, you must save your document first.*
+A dialog window opens in the current folder. Select your image. The extension automatically calculates the _relative path_ from your document to the image and inserts the correct `image::path/to/image.png[]` (AsciiDoc) or `![image](path/to/image.png)` (Markdown) syntax.
+*Note: To ensure the path matches the document, you must save your document first.*
 
 ## 4. Save image from clipboard (Insert image from clipboard)
 Have you taken a screenshot that is currently in your clipboard?
 Select _Insert image from clipboard_. A save dialog will open. Give the image a name. The extension saves the image from memory to your hard drive and immediately inserts the code with the relative path into the document.
-*Note: To ensure the path matches the .adoc file, you must save your document first.*
+*Note: To ensure the path matches the document, you must save your document first.*
 
 ## 5. Download image from the internet (Insert image URL)
 Copy the URL of an image (e.g., _https://example.com/image.png_) to the clipboard. Select _Insert image URL_.
 The extension downloads the image from the internet, asks where you would like to save it locally, and then inserts it into the document along with the original source. This ensures that no images are lost if the website later goes offline.
-*Note: To ensure the path matches the .adoc file, you must save your document first.*
+*Note: To ensure the path matches the document, you must save your document first.*
 
-## 6. Copy AsciiDoc table as TSV to clipboard
-Highlight a table in AsciiDoc including the start and end markers (`|===`).
-In the context menu, select _Copy AsciiDoc Table as TSV to clipboard_.
+## 6. Copy table as TSV to clipboard
+Highlight a table in AsciiDoc including the start and end markers (`|===`), or a Markdown table.
+In the context menu, select _Copy table as TSV to clipboard_.
 This copies the table as a tab-separated text to your clipboard, allowing you to easily paste it into spreadsheet software like Excel.
 
-## 7. Import file directly as code block (File Explorer Feature)
+## 7. Format Markdown tables
+Edited a Markdown table by hand and the columns no longer line up? Place the cursor anywhere inside the table, right-click and select _Format table_.
+All columns are padded to their widest cell again. Alignment markers in the delimiter row (`:---`, `:---:`, `---:`) are kept, and the cells are aligned accordingly. Rows with more cells than the header get additional, empty header cells, so no content is lost.
+*Note: Only available for Markdown documents.*
+
+## 8. Import file directly as code block (File Explorer Feature)
 This is a powerful feature for writing technical documentation:
 In the _left-hand file tree view_ of VS Code (File Explorer), right-click on any code file (e.g., _.cs_, _.java_, _.py_) and select _Insert file as source block_.
-The extension reads the entire file, automatically detects the programming language, calculates the relative path, and inserts a clickable link to the file along with the source code into your currently open AsciiDoc document.
-*Note: To ensure the path matches the .adoc file, you must save your document first.*
+The extension reads the entire file, automatically detects the programming language, calculates the relative path, and inserts a clickable link to the file along with the source code into your currently open AsciiDoc or Markdown document.
+*Note: To ensure the path matches the document, you must save your document first.*
 
-## 8. Copy files and directories to the clipboard
+## 9. Copy files and directories to the clipboard
 When writing AI prompts, you often need to provide your source code as context. 
 Select **one or multiple files and directories** in the File Explorer, right-click, and choose _Copy sources to clipboard_. You can also click the dedicated icon next to a directory name.
 This recursively bundles your selected code into an XML structure optimized for LLMs, and will notify you exactly how many files were processed. 
 _Note: Extractors are included for `.docx` and `.pdf` files. Ensure you add these to your included extensions if you want their text extracted!_
 
-## 9. PDF generation
+## 10. PDF generation
 In the Explorer context menu, you can export an ADOC file to PDF by right-clicking on the file and selecting _Export as PDF_.
 
 **Prerequisite: Docker must be installed and running.**
@@ -52,20 +59,20 @@ The conversion is executed using the `asciidoctor/docker-asciidoctor` Docker ima
 * **Linux:** Ensure your user is in the `docker` group (`sudo usermod -aG docker $USER`).
 * **Troubleshooting:** Check if communication with the daemon is working by running `docker ps` in your terminal.
 
-## 10. AI Features: Translation and Custom Prompts
+## 11. AI Features: Translation and Custom Prompts
 You can trigger AI-assisted edits directly from your editor or explorer:
 * **Translate Selection:** Select text, right-click, and choose _LLM: Translate_.
 * **Send to AI:** Select text or file, right-click, and choose _LLM: Send to AI..._. A menu will open allowing you to choose from configurable preset tasks (like Spellchecking or Text Simplification) or enter a completely custom prompt and temperature on the fly. 
 
 *Prerequisite: An OpenAI-compatible endpoint (like LM Studio, Ollama) or a Cloud API (like Google Gemini, OpenAI) is required. Configure your endpoint URL, model, and optional API Key in your workspace settings.*
 
-## 11. Live Preview with highlight.js and PlantUML
+## 12. Live Preview with highlight.js and PlantUML
 Click the **Preview Icon** in the top right corner of the editor title bar, or run _Open AsciiDoc Preview_ from the Command Palette.
 The live preview natively renders integrated PlantUML diagrams (marked with `[plantuml]`), supports MathJax equations, and provides syntax highlighting via `highlight.js`. It closely resembles the final PDF output.
 
 ## 💡 Tips for a Smooth Workflow
 * **Use the Command Palette:** All features can be triggered by pressing `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac) and typing `AsciiDoc Productivity`.
-* **Save Frequently:** Many features rely on calculating relative paths. Ensure your `.adoc` file is saved to your workspace before inserting images or files.
+* **Save Frequently:** Many features rely on calculating relative paths. Ensure your document is saved to your workspace before inserting images or files.
 * **Local LLMs:** If you use Ollama or LM Studio locally, set your `completionsUrl` to your local endpoint (e.g., `http://127.0.0.1:1234/v1/chat/completions` for LM Studio).
 
 ## Configuration

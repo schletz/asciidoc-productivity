@@ -3,7 +3,6 @@ import './bufferExtensions';
 import { insertSourceBlock } from './insertSourceBlock';
 import { insertImageBlock } from './insertImageBlock';
 import { insertTsvTable } from './insertTsvTable';
-import { insertMarkdownTable } from './insertMarkdownTable';
 import { insertImageFromFile } from './insertImageFromFile';
 import { insertImageFromClipboard } from './insertImageFromClipboard';
 import { insertFileAsSourceBlock } from './insertFileAsSourceBlock';
@@ -11,46 +10,51 @@ import { copySourcesToClipboard } from './copySourcesToClipboard';
 import { exportAsPdf } from './exportAsPdf';
 import ConfigurationService from './ConfigurationService';
 import { copyAsTsv } from './copyAsTsv';
+import { formatTable } from './formatTable';
 import { translate } from './translate';
 import LLMService from './LLMService';
 import { showPreview } from './showPreview';
 import { sendToAi } from './sendToAi';
 import { sendFilesToAi } from './sendFilesToAi';
 import { PreviewService } from './PreviewService';
+import { runMarkupCommand } from './runMarkupCommand';
 
 /**
  * Activates the extension by registering all commands and subscribing them to the context.
  * @param context - The VS Code extension context provided by the host environment.
  */
 export function activate(context: ExtensionContext) {
+    // Markup commands work on the active AsciiDoc or Markdown document; runMarkupCommand
+    // resolves its syntax per call and reports errors.
     let insertSourceBlockCmd = commands.registerCommand(
-        'asciidoc-productivity.insertSourceBlock', insertSourceBlock);
+        'asciidoc-productivity.insertSourceBlock', runMarkupCommand(insertSourceBlock));
 
     let insertImageBlockCmd = commands.registerCommand(
-        'asciidoc-productivity.insertImageBlock', insertImageBlock);
+        'asciidoc-productivity.insertImageBlock', runMarkupCommand(insertImageBlock));
 
     let insertTsvTableCmd = commands.registerCommand(
-        'asciidoc-productivity.insertTsvTable', insertTsvTable);
-
-    let insertMarkdownTableCmd = commands.registerCommand(
-        'asciidoc-productivity.insertMarkdownTable', insertMarkdownTable);
+        'asciidoc-productivity.insertTsvTable', runMarkupCommand(insertTsvTable));
 
     let insertImageFromFileCmd = commands.registerCommand(
-        'asciidoc-productivity.insertImageFromFile', insertImageFromFile);
+        'asciidoc-productivity.insertImageFromFile', runMarkupCommand(insertImageFromFile));
 
     let insertImageFromClipboardCmd = commands.registerCommand(
-        'asciidoc-productivity.insertImageFromClipboard', insertImageFromClipboard);
+        'asciidoc-productivity.insertImageFromClipboard', runMarkupCommand(insertImageFromClipboard));
 
     let insertFileAsSourceBlockCmd = commands.registerCommand(
         'asciidoc-productivity.insertFileAsSourceBlock',
-        async (clickedUri: Uri) => await insertFileAsSourceBlock(clickedUri));
+        runMarkupCommand((editorService, syntax, clickedUri?: Uri) =>
+            insertFileAsSourceBlock(editorService, syntax, clickedUri)));
 
     let copySourcesToClipboardCmd = commands.registerCommand(
         'asciidoc-productivity.copySourcesToClipboard',
         async (clickedUri?: Uri, selectedUris?: Uri[]) => await copySourcesToClipboard(clickedUri, selectedUris, new ConfigurationService()));
 
     let copyAsTsvCmd = commands.registerCommand(
-        'asciidoc-productivity.copyAsTsv', copyAsTsv);
+        'asciidoc-productivity.copyAsTsv', runMarkupCommand(copyAsTsv));
+
+    let formatTableCmd = commands.registerCommand(
+        'asciidoc-productivity.formatTable', runMarkupCommand(formatTable));
 
     let translateCmd = commands.registerCommand(
         'asciidoc-productivity.translate',
@@ -92,12 +96,12 @@ export function activate(context: ExtensionContext) {
         insertSourceBlockCmd,
         insertImageBlockCmd,
         insertTsvTableCmd,
-        insertMarkdownTableCmd,
         insertImageFromFileCmd,
         insertImageFromClipboardCmd,
         insertFileAsSourceBlockCmd,
         copySourcesToClipboardCmd,
         copyAsTsvCmd,
+        formatTableCmd,
         translateCmd,
         exportAsPdfCmd,
         showPreviewCmd,
