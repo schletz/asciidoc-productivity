@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.27",
+  "version": "1.0.28",
   "icon": "icon.png",
   "repository": {
     "type": "git",
@@ -141,6 +141,10 @@
         "title": "Format table"
       },
       {
+        "command": "asciidoc-productivity.convertToTable",
+        "title": "Convert to table"
+      },
+      {
         "command": "asciidoc-productivity.translate",
         "title": "LLM: Translate"
       },
@@ -207,6 +211,11 @@
         {
           "command": "asciidoc-productivity.formatTable",
           "when": "editorLangId == markdown || resourceExtname =~ /^\\.(md|markdown)$/i",
+          "group": "navigation@6"
+        },
+        {
+          "command": "asciidoc-productivity.convertToTable",
+          "when": "editorHasSelection && (editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\\.(adoc|asciidoc|asc|md|markdown)$/i)",
           "group": "navigation@6"
         },
         {

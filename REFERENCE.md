@@ -1,10 +1,10 @@
 # asciidoc-productivity — Agent-Referenz
 
-Referenz der VS-Code-Extension `schletz.asciidoc-productivity` (Version 1.0.27), damit Erweiterungen, Debugging und Refactoring ohne vorheriges vollständiges Lesen des Quellcodes möglich sind.
+Referenz der VS-Code-Extension `schletz.asciidoc-productivity` (Version 1.0.28), damit Erweiterungen, Debugging und Refactoring ohne vorheriges vollständiges Lesen des Quellcodes möglich sind.
 
 ## Zweck
 
-- Editor-Befehle für AsciiDoc **und Markdown** (Markup-Befehle): Clipboard als Source-Block/Tabelle einfügen, Bilder (Datei, Clipboard, URL) mit relativem Pfad einfügen, Tabelle als TSV kopieren, Datei als Source-Block einfügen. Die Syntax wählt `MarkupSyntax` je Dokument. Nur Markdown: Spalten der Tabelle unter dem Cursor ausrichten (formatTable).
+- Editor-Befehle für AsciiDoc **und Markdown** (Markup-Befehle): Clipboard als Source-Block/Tabelle einfügen, Bilder (Datei, Clipboard, URL) mit relativem Pfad einfügen, Tabelle als TSV kopieren, markierte Zeilen mit eingegebenem Trennzeichen in eine Tabelle umwandeln, Datei als Source-Block einfügen. Die Syntax wählt `MarkupSyntax` je Dokument. Nur Markdown: Spalten der Tabelle unter dem Cursor ausrichten (formatTable).
 - Explorer-Befehle: Dateien/Ordner rekursiv als XML oder Markdown in die Zwischenablage (LLM-Kontext), PDF-Export per Docker, Dateien per LLM umschreiben und überschreiben.
 - LLM-Befehle auf Selektion: Übersetzen, beliebiger System-Prompt. Anbindung an OpenAI-kompatible Endpunkte oder die native Anthropic Messages API.
 - Live-Preview im Webview (asciidoctor.js im Browser, PlantUML über lokalen Kroki-Container, highlight.js, MathJax).
@@ -13,10 +13,10 @@ Referenz der VS-Code-Extension `schletz.asciidoc-productivity` (Version 1.0.27),
 
 | Datei | Zeilen | Verantwortung |
 | --- | --- | --- |
-| src/extension.ts | 116 | registriert alle Befehle, stoppt beim Deaktivieren den Kroki-Container |
+| src/extension.ts | 121 | registriert alle Befehle, stoppt beim Deaktivieren den Kroki-Container |
 | src/globals.ts | 286 | `sourceTypes`: Dateiendung → Source-Sprachkennung (260 Einträge) |
 | src/ConfigurationService.ts | 153 | liest Settings `asciidoc-productivity.*`, mischt System-Prompts |
-| src/EditorService.ts | 127 | kapselt aktiven Editor: Einfügen, Zeilen ersetzen, Dialoge, relativer Pfad |
+| src/EditorService.ts | 147 | kapselt aktiven Editor: Einfügen, selektierte Zeilen lesen, Zeilen ersetzen, Dialoge, relativer Pfad |
 | src/runMarkupCommand.ts | 33 | Wrapper für Markup-Befehle: EditorService + Syntax erzeugen, Fehler anzeigen |
 | src/MarkupSyntax.ts | 76 | Interface der Markup-Erzeugung/-Analyse, Typen `TableRows`, `FormattedTable` |
 | src/createMarkupSyntax.ts | 35 | Factory: languageId bzw. Dateiendung → Syntax |
@@ -24,7 +24,8 @@ Referenz der VS-Code-Extension `schletz.asciidoc-productivity` (Version 1.0.27),
 | src/MarkdownSyntax.ts | 88 | Markdown-Markup (CommonMark/GFM), Tabelle unter dem Cursor finden |
 | src/MarkdownTable.ts | 134 | GFM-Tabelle: parsen inkl. Ausrichtung, ausgerichtet rendern |
 | src/formatTable.ts | 29 | Befehl: Tabelle unter dem Cursor formatieren |
-| src/parseTsv.ts | 20 | reine Funktion TSV → `TableRows` |
+| src/parseDelimited.ts | 21 | reine Funktion: Text mit beliebigem Trennzeichen → `TableRows` |
+| src/parseTsv.ts | 13 | TSV → `TableRows`, delegiert an `parseDelimited` |
 | src/tableCells.ts | 18 | Zellen an unescapten `\|` trennen, `|` escapen (beide Syntaxen) |
 | src/bufferExtensions.ts | 36 | `Buffer.prototype.getStringWithEncodingDetection` (BOM-Erkennung) |
 | src/LLMService.ts | 299 | HTTP-Aufruf an LLM, Provider-Erkennung, Normalisierung der Antwort |
@@ -44,6 +45,7 @@ Referenz der VS-Code-Extension `schletz.asciidoc-productivity` (Version 1.0.27),
 | src/insertFileAsSourceBlock.ts | 36 | Explorer-Datei als Source-Block mit Link |
 | src/insertTsvTable.ts | 19 | Clipboard-TSV → Tabelle |
 | src/copyAsTsv.ts | 26 | selektierte Tabelle → TSV in Clipboard |
+| src/convertToTable.ts | 40 | selektierte Zeilen + Trennzeichen → Tabelle ersetzt die Zeilen |
 | src/ssh2-mock.js | 11 | Webpack-Alias-Stub für `ssh2` |
 | lib/preview.js | 52 | Webview-Skript: rendert bei `update`-Nachricht |
 | lib/preview.css | 249 | Preview-Styles, Fonts aus lib/fonts/ |
@@ -54,8 +56,8 @@ Referenz der VS-Code-Extension `schletz.asciidoc-productivity` (Version 1.0.27),
 | src/test/helpers/FakeClipboard.ts | 28 | ersetzt `vscode.env.clipboard` durch Speicher |
 | src/test/helpers/MockLlmServer.ts | 153 | lokaler HTTP-Server im OpenAI-/Anthropic-Format, zeichnet Requests auf |
 | src/test/helpers/TestSettings.ts | 35 | Settings je Test setzen und zurücksetzen |
-| src/test/e2e/*.test.ts | 37–93 je Datei | je Markup-Befehl AsciiDoc + Markdown (insertSourceBlock, insertTsvTable, copyAsTsv, insertFileAsSourceBlock, insertImage, formatTable), Wrapper-Fehler (runMarkupCommand), sendToAi gegen OpenAI-/Anthropic-Mock |
-| src/test/unit/*.test.ts | 24–104 je Datei | AsciidocSyntax, MarkdownSyntax, MarkdownTable, parseTsv, createMarkupSyntax ohne Extension Host |
+| src/test/e2e/*.test.ts | 37–93 je Datei | je Markup-Befehl AsciiDoc + Markdown (insertSourceBlock, insertTsvTable, copyAsTsv, convertToTable, insertFileAsSourceBlock, insertImage, formatTable), Wrapper-Fehler (runMarkupCommand), sendToAi gegen OpenAI-/Anthropic-Mock |
+| src/test/unit/*.test.ts | 19–104 je Datei | AsciidocSyntax, MarkdownSyntax, MarkdownTable, parseTsv, parseDelimited, createMarkupSyntax ohne Extension Host |
 
 Vendor-Bundles in lib/ (nicht editieren, Herkunft im Kopfkommentar von src/showPreview.ts:1-21): `asciidoctor.min.js` (Asciidoctor.js 3.0.4, angepasst: exportiert `window.Asciidoctor` statt ES-Default-Export), `asciidoctor-kroki.js` (setzt `window.AsciidoctorKroki`), `highlight.min.js` + Themes `vs.min.css`/`vs2015.min.css`, `tex-mml-chtml.js` (MathJax 4).
 
@@ -76,6 +78,7 @@ Alle IDs mit Präfix `asciidoc-productivity.`. Aktivierung implizit über `contr
 | insertImageFromClipboard | `insertImageFromClipboard` (src/insertImageFromClipboard.ts:16) | editor/context, Markup | Save-Dialog (nur png) → PNG schreiben → `image` |
 | copyAsTsv | `copyAsTsv` (src/copyAsTsv.ts:10) | editor/context, Markup | Selektion → `parseTable` → TSV in Clipboard |
 | formatTable | `formatTable` (src/formatTable.ts:12) | editor/context, **Markdown** (`editorLangId == markdown || resourceExtname =~ /^\.(md|markdown)$/i`) | Cursorzeile (`selection.active`) → `formatTableAt` → Tabellenzeilen ersetzt |
+| convertToTable | `convertToTable` (src/convertToTable.ts:13) | editor/context, Markup **und** editorHasSelection | ganze Zeilen der Selektion + InputBox (Trennzeichen) → `parseDelimited` → `table` ersetzt die Zeilen |
 | translate | `translate` (src/translate.ts:15) | editor/context, editorHasSelection | Selektion → Übersetzung ersetzt Selektion |
 | sendToAi | `sendToAi` (src/sendToAi.ts:20) | editor/context, editorHasSelection | Selektion → LLM-Antwort ersetzt Selektion |
 | insertFileAsSourceBlock | `insertFileAsSourceBlock` (src/insertFileAsSourceBlock.ts:14) | explorer/context | Datei → `fileSourceBlock` im aktiven Editor |
@@ -86,7 +89,7 @@ Alle IDs mit Präfix `asciidoc-productivity.`. Aktivierung implizit über `contr
 
 Explorer-Befehle bekommen `(clickedUri, selectedUris)` von VS Code; aus der Befehlspalette sind beide `undefined`.
 
-„Markup“ in der Menüspalte = `when`-Klausel `editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\.(adoc|asciidoc|asc|md|markdown)$/i` (package.json, sechs editor/context-Einträge). In der Befehlspalette sind alle Befehle immer sichtbar; Markup-Befehle melden in anderen Dokumenten einen Fehler.
+„Markup“ in der Menüspalte = `when`-Klausel `editorLangId =~ /^(asciidoc|markdown)$/ || resourceExtname =~ /^\.(adoc|asciidoc|asc|md|markdown)$/i` (package.json, sieben editor/context-Einträge; bei convertToTable als `editorHasSelection && (…)`). In der Befehlspalette sind alle Befehle immer sichtbar; Markup-Befehle melden in anderen Dokumenten einen Fehler.
 
 ### Settings
 
@@ -109,7 +112,7 @@ Jeder Default steht doppelt: in package.json (`contributes.configuration`) und a
 ### LLM-Befehle
 
 ```
-activate(context)                              src/extension.ts:26
+activate(context)                              src/extension.ts:27
  └─ je Aufruf: new ConfigurationService(), new LLMService(cs)
      ├─ translate(cs, llm, undefined)          src/translate.ts:15
      ├─ sendToAi(cs, llm)                      src/sendToAi.ts:20
@@ -126,7 +129,7 @@ activate(context)                              src/extension.ts:26
 ### Markup-Befehle
 
 ```
-activate(context)                              src/extension.ts:26
+activate(context)                              src/extension.ts:27
  └─ registerCommand(id, runMarkupCommand(handler))
 runMarkupCommand(handler)(...vscodeArgs)       src/runMarkupCommand.ts:21
  ├─ new EditorService()                        wirft "No editor open."
@@ -197,7 +200,7 @@ exportAsPdf(clickedUri)                        src/exportAsPdf.ts:165
 | Inhalt | alle `content`-Blöcke mit `type === 'text'` verkettet, getrimmt | `choices[0].message.content.trim()` |
 | Abgeschnitten | `stop_reason === 'max_tokens'` | `finish_reason === 'length'` |
 
-**Temperature** (`TemperatureSupport`, src/TemperatureSupport.ts:19): Regex `claude-(family)-(major)(-minor)?` (:30). Nicht gesendet bei major ≥ 5 und bei `opus` 4.7+; Nicht-Claude-IDs und datierte Claude-3-IDs (`claude-3-opus-…`) gelten als unterstützt. Laufzeit-Fallback: HTTP 400 mit „temperature“ im Body → Modell in `rejectedModels`, einmaliger Retry ohne Parameter. **Lebensdauer:** `LLMService` (und damit `TemperatureSupport`) wird pro Befehlsaufruf neu erzeugt (src/extension.ts:63, :72, :90); das Merken wirkt nur innerhalb eines Aufrufs, z. B. über mehrere Dateien von `sendFilesToAi`.
+**Temperature** (`TemperatureSupport`, src/TemperatureSupport.ts:19): Regex `claude-(family)-(major)(-minor)?` (:30). Nicht gesendet bei major ≥ 5 und bei `opus` 4.7+; Nicht-Claude-IDs und datierte Claude-3-IDs (`claude-3-opus-…`) gelten als unterstützt. Laufzeit-Fallback: HTTP 400 mit „temperature“ im Body → Modell in `rejectedModels`, einmaliger Retry ohne Parameter. **Lebensdauer:** `LLMService` (und damit `TemperatureSupport`) wird pro Befehlsaufruf neu erzeugt (src/extension.ts:67, :76, :94); das Merken wirkt nur innerhalb eines Aufrufs, z. B. über mehrere Dateien von `sendFilesToAi`.
 
 **Statistik:** `stats` ist `null`, wenn die Antwort keine `completionTokens` meldet (:150). Die Abschneide-Warnung in den Befehlen hängt an `stats.hasLengethExeeded` (Schreibfehler im Feldnamen, PromptStats :11) und entfällt damit ohne Usage-Angabe.
 
@@ -222,7 +225,7 @@ exportAsPdf(clickedUri)                        src/exportAsPdf.ts:165
 Gemeinsame Regeln:
 
 - **Escaping:** `|` in Zellen → `\|` (`escapeTableCell`, src/tableCells.ts:16); `parseTable` trennt an unescapten `|` und entescaped (`splitTableCells`, :8). `table` und `parseTable` sind je Syntax zueinander invers (Unit-Tests).
-- **TSV** (`parseTsv`, src/parseTsv.ts:10): nur abschließende Zeilenumbrüche entfernt (Tabs am Ende bleiben leere Zellen), LF/CRLF, Zellen getrimmt, kürzere Zeilen mit `''` aufgefüllt bis zur breitesten. Leere Eingabe → `[]`; `table([])` → `''`.
+- **Getrennter Text** (`parseDelimited`, src/parseDelimited.ts:11): Trennzeichen literal (kein Regex, mehrere Zeichen erlaubt); nur abschließende Zeilenumbrüche entfernt (Trennzeichen am Ende bleiben leere Zellen), LF/CRLF, Zellen getrimmt, kürzere Zeilen mit `''` aufgefüllt bis zur breitesten. Leere Eingabe → `[]`; `table([])` → `''`. `parseTsv` (src/parseTsv.ts:11) = `parseDelimited(text, '\t')`.
 - **Markdown-Links:** Pfade mit Leerzeichen werden als `<rel>` geschrieben (CommonMark); `[` und `]` im Link-/Alt-Text werden mit `\` escaped. AsciiDoc escaped weder Pfade noch Dateinamen.
 - **Sprach-IDs** in Source-Blöcken für beide Syntaxen aus `sourceTypes` (src/globals.ts:5).
 
@@ -233,7 +236,7 @@ Gemeinsame Regeln:
 - **`parse(lines)`** (:35): Zeilen getrimmt, nur Zeilen mit unescaptem `|` (`isRow` :52), äußere Pipes optional. Die erste Trennzeile (`delimiterRowPattern` :8) liefert die Ausrichtung (`:-` links, `-:` rechts, `:-:` zentriert), weitere Trennzeilen werden verworfen. Mehr Zellen als im Header → Header bekommt leere Zellen (GFM würde sie verwerfen).
 - **`render(indent)`** (:70): Breite je Spalte = max(3, breiteste escapte Zelle) in **Codepoints** (Emoji/CJK sehen im Editor trotzdem versetzt aus); Inhalt nach Ausrichtung gepolstert, bei `center` das ungerade Leerzeichen rechts; Trennzeile `|:----|----:|` mit Breite + 2 Zeichen je Zelle. Ergebnis ohne abschließenden Zeilenumbruch, mit LF; jede Zeile mit `indent` präfixiert.
 - **`formatTableAt(lines, line)`** (src/MarkdownSyntax.ts:54): Tabelle = Block zusammenhängender `isRow`-Zeilen um `line`, dessen **zweite** Zeile eine Trennzeile ist; sonst `undefined`. Einrückung der ersten Zeile wird für alle Zeilen übernommen. Fenced Code Blocks werden nicht erkannt: Pipe-Zeilen mit Trennzeile in einem Codeblock gelten als Tabelle.
-- **Ersetzen** (`replaceLines`, src/EditorService.ts:54): ganze Zeilen `startLine..endLine` ohne den letzten Zeilenumbruch; identischer Text (CRLF normalisiert verglichen) wird nicht geschrieben, das Dokument bleibt dann unverändert/nicht dirty. VS Code wandelt die LF des Ersatztexts in das EOL des Dokuments.
+- **Ersetzen** (`replaceLines`, src/EditorService.ts:74): ganze Zeilen `startLine..endLine` ohne den letzten Zeilenumbruch; identischer Text (CRLF normalisiert verglichen) wird nicht geschrieben, das Dokument bleibt dann unverändert/nicht dirty. VS Code wandelt die LF des Ersatztexts in das EOL des Dokuments.
 
 ## Kernkonzept: Preview
 
@@ -242,7 +245,7 @@ Gemeinsame Regeln:
 - **Render-Optionen** (lib/preview.js:7-16): `safe: 'safe'`, `showtitle`, `icons: font`, `kroki-default-format: svg`, `source-highlighter: highlight.js`, `stem: latexmath`. MathJax: inline `\( \)` und `$ $`, display `\[ \]`, `startup.typeset: false`, Menü/Speech/Braille aus (src/PreviewService.ts:250-274).
 - **Webview** (`createPanel` :92): `enableScripts`, `retainContextWhenHidden`. `localResourceRoots` = lib/ + alle Workspace-Ordner (ohne Workspace: Dokumentordner). `<base href>` = Dokumentordner, damit relative Bildpfade laden. CSP (:228) erlaubt `img-src https: http: data:` (nötig für Kroki), Skripte nur inline und aus lib/.
 - **Singleton**: ein Panel für die gesamte Sitzung (`getInstance` :25). Erneutes `showPreview` aus einem anderen Editor setzt `sourceUri` um; das Panel folgt dann diesem Dokument.
-- **Kroki-Lebenszyklus**: Container pro Panel. Start bei Panel-Erzeugung, `stop()` beim Schließen des Panels (`dispose` :174) und in `deactivate` (src/extension.ts:116). `start()` ist gegen parallele Aufrufe über `startupPromise` gesperrt (src/KrokiContainerManager.ts:20-33).
+- **Kroki-Lebenszyklus**: Container pro Panel. Start bei Panel-Erzeugung, `stop()` beim Schließen des Panels (`dispose` :174) und in `deactivate` (src/extension.ts:120). `start()` ist gegen parallele Aufrufe über `startupPromise` gesperrt (src/KrokiContainerManager.ts:20-33).
 
 ## Kernkonzept: Tests
 
@@ -295,7 +298,7 @@ Nicht abgedeckt durch die Umgebung: Kontextmenüs und `when`-Klauseln (es werden
 | `anthropic-version` | src/LLMService.ts:230 | `2023-06-01`, Pflicht-Header der Messages API |
 | `printRawHtml` | src/PreviewService.ts:6 | `false`; Debug-Schalter, zeigt generiertes HTML als Text |
 | Default-Sprache Source-Block | src/insertSourceBlock.ts:14 | `csharp` |
-| `asciidocExtensions`, `markdownExtensions` | src/createMarkupSyntax.ts:16-17 | `.adoc .asciidoc .asc` / `.md .markdown`. **Invariante:** dieselbe Liste steht als Regex in den sechs editor/context-`when`-Klauseln der package.json (nicht abgeleitet) |
+| `asciidocExtensions`, `markdownExtensions` | src/createMarkupSyntax.ts:16-17 | `.adoc .asciidoc .asc` / `.md .markdown`. **Invariante:** dieselbe Liste steht als Regex in den sieben editor/context-`when`-Klauseln der package.json (nicht abgeleitet) |
 
 ## Externe Systeme
 
@@ -323,9 +326,10 @@ Output-Channels: „AsciiDoc Preview“ (src/KrokiContainerManager.ts:4, exporti
   - Ausgabe XML: `<documents root=… created=ISO>` + je Datei `<file path language><![CDATA[…]]></file>`. Markdown: `# root`, je Datei `## File pfad` + Codefence. `language` = `sourceTypes[ext] ?? ext`. Keinerlei Escaping (Attributwerte, `]]>` im Inhalt, ``` im Inhalt).
   - Danach Clipboard schreiben, Rückfrage „als Datei speichern?“ mit Save-Dialog.
 - **AsciiDoc-`parseTable`** (src/AsciidocSyntax.ts:45) liest **nur das eigene Format** von `table`: Tabellen ohne Leerzeilen zwischen den Zeilen (`|a |b` auf einer Zeile) werden zu einer einzigen TSV-Zeile; eine mitselektierte Attributzeile `[%header,…]` landet als Zelleninhalt im TSV.
+- **convertToTable** (src/convertToTable.ts:13): Zeilenbereich aus `getSelectedLines` (src/EditorService.ts:51): ganze Zeilen von Selektionsanfang bis -ende; endet die Selektion in Spalte 0 einer späteren Zeile (ganze Zeilen markiert), zählt diese Zeile nicht. Leere und Whitespace-Zeilen werden verworfen, die erste übrige Zeile wird Header. Eingabe `\t` steht für Tab (:30), weil eine InputBox keinen Tab aufnimmt; weitere Escapes gibt es nicht, Leerzeichen als Trennzeichen sind möglich. Ersatz per `replaceLines` mit dem `table`-Text ohne abschließendes `\n`, der Zeilenumbruch der letzten Zeile bleibt. Einrückung der Zeilen geht verloren (Zellen getrimmt).
 - **copyAsTsv** (src/copyAsTsv.ts:10): Zellen mit `\t`, Zeilen mit `\n` verbunden; Ergebnis nur aus Whitespace → Warnung „Could not extract table data.“, Clipboard bleibt.
 - **Encoding** (src/bufferExtensions.ts:13): BOM FF FE → UTF-16LE, FE FF → UTF-16BE via `swap16` (bei ungerader Länge UTF-8-Fallback; `swap16` verändert den Buffer in place), sonst UTF-8; führendes U+FEFF wird entfernt. Wirkt nur, weil src/extension.ts:2 das Modul seiteneffekthaft importiert. Ausgaben schreibt die Extension immer als UTF-8 ohne BOM.
-- **Relative Pfade** (`getRelativePath`, src/EditorService.ts:113): relativ zum Ordner des aktiven Dokuments, Backslashes → `/`; gilt für beide Syntaxen.
+- **Relative Pfade** (`getRelativePath`, src/EditorService.ts:133): relativ zum Ordner des aktiven Dokuments, Backslashes → `/`; gilt für beide Syntaxen.
 - **insertFileAsSourceBlock** (src/insertFileAsSourceBlock.ts:14): Sprache aus `sourceTypes`, unbekannte Endung → ohne Sprache; danach Fokus zurück in den Editor.
 - **insertImageFromClipboard** (src/insertImageFromClipboard.ts:16): wartet auf das Ende des PowerShell-/osascript-Prozesses (`promisify(exec)`), erst dann wird eingefügt.
 - **sendFilesToAi** (src/sendFilesToAi.ts): sammelt **alle** Dateien rekursiv (nur Ordner mit führendem `.` übersprungen; `includeExtensions`/`exclude*` gelten nicht). Fortschritt proportional zur Dateigröße. Abbruch nur zwischen zwei Dateien. Entfernt eine umschließende Codefence aus der Antwort (:163-166). Bei abgeschnittener Antwort modale Warnung und Datei bleibt unverändert.
@@ -340,6 +344,9 @@ Output-Channels: „AsciiDoc Preview“ (src/KrokiContainerManager.ts:4, exporti
 | Markup-Befehl wirft beliebigen Error | `runMarkupCommand` zeigt `error.message`, sonst „An unknown error occurred.“ |
 | Dokument ungespeichert (`insertImageBlock`, `insertImageFromClipboard`) | ErrorMessage „Please save the document first …“ vor dem Save-Dialog (`isDocumentSaved`) — gilt nicht für `insertImageFromFile` und `insertFileAsSourceBlock` |
 | formatTable in AsciiDoc (Befehlspalette) | ErrorMessage „Formatting tables is only supported in Markdown documents.“ |
+| convertToTable ohne Selektion | WarningMessage „Please select the lines to convert first.“ vor der InputBox |
+| convertToTable, InputBox leer / abgebrochen | `validateInput` verhindert leeres Bestätigen; Abbruch endet ohne Meldung |
+| convertToTable, Trennzeichen in keiner Zeile | WarningMessage „Delimiter "<Eingabe>" not found in the selection.“, Dokument unverändert |
 | formatTable, Cursor nicht in einer Tabelle | WarningMessage „Place the cursor inside a Markdown table.“, Dokument unverändert |
 | insertFileAsSourceBlock ohne Uri (Befehlspalette) | ErrorMessage „This command must be called from the file explorer.“ |
 | Bild-Download HTTP ≠ 2xx | ErrorMessage mit Status; die Zieldatei wird nicht geschrieben |
@@ -360,17 +367,19 @@ Benutzermeldungen sind englisch; Ausnahme: Beschreibungen im Format-QuickPick vo
 
 ## Erweiterungspunkte
 
-**Neuer Befehl** — `contributes.commands` in package.json, optional Eintrag unter `contributes.menus` (Kontext über `when`, Position über `group`), Handler-Datei in src/, `registerCommand` in `activate` (src/extension.ts:26) **und** in `context.subscriptions.push` (:95-109) aufnehmen. Explorer-Befehle erhalten `(clickedUri, selectedUris)`; Abhängigkeiten (`ConfigurationService`, `LLMService`) werden in der Lambda in extension.ts erzeugt und übergeben.
+**Neuer Befehl** — `contributes.commands` in package.json, optional Eintrag unter `contributes.menus` (Kontext über `when`, Position über `group`), Handler-Datei in src/, `registerCommand` in `activate` (src/extension.ts:27) **und** in `context.subscriptions.push` (:99-114) aufnehmen. Explorer-Befehle erhalten `(clickedUri, selectedUris)`; Abhängigkeiten (`ConfigurationService`, `LLMService`) werden in der Lambda in extension.ts erzeugt und übergeben.
 
 **Neuer Markup-Befehl** (für AsciiDoc und Markdown) — Handler mit Signatur `(editorService, syntax, ...vscodeArgs)` (`MarkupCommandHandler`, src/runMarkupCommand.ts:10), Fehler werfen statt melden, registrieren mit `runMarkupCommand(handler)`. Neue Syntax-Ausgabe als Methode in `MarkupSyntax` **und** in beiden Implementierungen; Menüeintrag mit der Markup-`when`-Klausel (siehe Schnittstelle).
 
 **Tabellenformatierung für AsciiDoc** — `formatTableAt` in `AsciidocSyntax` implementieren; `formatTable` (src/formatTable.ts:12) prüft nur, ob die Methode existiert. Danach die `when`-Klausel von formatTable in package.json auf die Markup-Klausel erweitern. `AsciidocSyntax.parseTable` liest nur das Layout von `table` (Details) und taugt für von Hand geschriebene Tabellen nicht.
 
-**Neue Markup-Sprache** (z. B. reStructuredText) — Klasse `implements MarkupSyntax`, Zweig in `createMarkupSyntax` (src/createMarkupSyntax.ts:26) mit languageId und Endungsliste, dieselben Endungen in die Regex aller sechs Markup-`when`-Klauseln in package.json. Unit-Test nach dem Muster von src/test/unit/MarkdownSyntax.test.ts.
+**Neue Markup-Sprache** (z. B. reStructuredText) — Klasse `implements MarkupSyntax`, Zweig in `createMarkupSyntax` (src/createMarkupSyntax.ts:26) mit languageId und Endungsliste, dieselben Endungen in die Regex aller sieben Markup-`when`-Klauseln in package.json. Unit-Test nach dem Muster von src/test/unit/MarkdownSyntax.test.ts.
 
 **Neues Setting** — Property in package.json (`contributes.configuration.properties`) **und** Getter mit identischem Key und Default in `ConfigurationService` (src/ConfigurationService.ts). Key-Namen exakt abgleichen; es gibt keine Prüfung.
 
 **Neue Dateiendung / Sprache** — Eintrag in `sourceTypes` (src/globals.ts:5) **und** im `includeExtensions`-Default an zwei Stellen (package.json:26, src/ConfigurationService.ts:25), sonst wird die Endung von copySourcesToClipboard standardmäßig nicht erfasst. `sourceTypes` steuert außerdem die 50-KiB-Grenze (Endung bekannt) vs. 10 MiB.
+
+**Weitere Escape-Sequenzen für das Trennzeichen** (z. B. `\s` für Whitespace-Folgen) — Abbildung in src/convertToTable.ts:30; `parseDelimited` trennt literal, Regex-Trennung bräuchte dort `split(RegExp)`, was `parseTsv` mitbetrifft.
 
 **Neuer Extraktor für Binärformate** (z. B. xlsx) — Funktion nach dem Muster von `copyDocx` (src/copySourcesToClipboard.ts:33) und Eintrag in `parsers` (:73). Endung nicht in `sourceTypes` aufnehmen, sonst greift die 50-KiB-Grenze.
 
@@ -391,7 +400,7 @@ Benutzermeldungen sind englisch; Ausnahme: Beschreibungen im Format-QuickPick vo
 ## Fallstricke
 
 - **Destruktiv:** `sendFilesToAi` überschreibt jede gesammelte Datei ohne Rückfrage oder Backup mit der LLM-Antwort — einschließlich Binärdateien und Inhalten von `node_modules`/`bin`, da keine Filter greifen. `exportAsPdf` überschreibt `<name>.pdf` und löscht den Ordner `.asciidoctor/` im Dokumentordner rekursiv. `insertImageBlock`/`insertImageFromClipboard` überschreiben die im Save-Dialog gewählte Datei.
-- **`sendToAi` ist nicht in `context.subscriptions`** (src/extension.ts:95-109 enthält `sendToAiCmd` nicht); die Registrierung funktioniert, wird aber beim Deaktivieren nicht disposed.
+- **`sendToAi` ist nicht in `context.subscriptions`** (src/extension.ts:99-114 enthält `sendToAiCmd` nicht); die Registrierung funktioniert, wird aber beim Deaktivieren nicht disposed.
 - **`translate` ersetzt die Selektion zum Antwortzeitpunkt** (`activeEditor.selection`, src/translate.ts:95), `sendToAi` dagegen die beim Start gemerkte Selektion (src/sendToAi.ts:111). Bewegt der Nutzer während der Anfrage den Cursor, landet die Übersetzung an der neuen Stelle. Der Datei-Zweig von `translate` (`clickedUri`) ist unbenutzt, extension.ts übergibt immer `undefined`.
 - **Anthropic-URL:** `completionsUrl` muss auf `…/v1/` enden; ein vollständiger Pfad `…/v1/messages` ergibt `…/v1/messages/messages`.
 - **Preview-Last:** Jeder Tastendruck schickt den gesamten Text, liest alle Includes synchron von der Platte und rendert komplett neu (kein Debounce).

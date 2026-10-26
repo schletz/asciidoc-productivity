@@ -10,6 +10,7 @@ import { copySourcesToClipboard } from './copySourcesToClipboard';
 import { exportAsPdf } from './exportAsPdf';
 import ConfigurationService from './ConfigurationService';
 import { copyAsTsv } from './copyAsTsv';
+import { convertToTable } from './convertToTable';
 import { formatTable } from './formatTable';
 import { translate } from './translate';
 import LLMService from './LLMService';
@@ -55,6 +56,9 @@ export function activate(context: ExtensionContext) {
 
     let formatTableCmd = commands.registerCommand(
         'asciidoc-productivity.formatTable', runMarkupCommand(formatTable));
+
+    let convertToTableCmd = commands.registerCommand(
+        'asciidoc-productivity.convertToTable', runMarkupCommand(convertToTable));
 
     let translateCmd = commands.registerCommand(
         'asciidoc-productivity.translate',
@@ -102,6 +106,7 @@ export function activate(context: ExtensionContext) {
         copySourcesToClipboardCmd,
         copyAsTsvCmd,
         formatTableCmd,
+        convertToTableCmd,
         translateCmd,
         exportAsPdfCmd,
         showPreviewCmd,

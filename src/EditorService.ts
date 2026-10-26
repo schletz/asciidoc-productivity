@@ -44,6 +44,26 @@ export default class EditorService {
     }
 
     /**
+     * Gets the whole lines touched by the selection. A selection that ends at the start of a
+     * line does not include that line; this happens when whole lines are selected.
+     * @returns The zero-based, inclusive line range and its text, or undefined if nothing is selected.
+     */
+    public getSelectedLines(): { startLine: number; endLine: number; text: string } | undefined {
+        const selection = this.editor.selection;
+        if (selection.isEmpty) {
+            return undefined;
+        }
+
+        const startLine = selection.start.line;
+        const endLine = selection.end.character === 0 && selection.end.line > startLine
+            ? selection.end.line - 1
+            : selection.end.line;
+        const document = this.editor.document;
+        const text = document.getText(new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).text.length));
+        return { startLine, endLine, text };
+    }
+
+    /**
      * Replaces whole lines of the document. Unchanged text is not written, so the document
      * does not become dirty without a reason.
      * @param startLine First line to replace, zero-based.
