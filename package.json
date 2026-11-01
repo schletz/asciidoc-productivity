@@ -3,7 +3,7 @@
   "publisher": "schletz",
   "displayName": "asciidoc-productivity",
   "description": "Improves AsciiDoc editing features.",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "icon": "icon.png",
   "repository": {
     "type": "git",
@@ -91,11 +91,18 @@
           "default": [
             {
               "name": "Check spelling and grammar",
-              "prompt": "You are an expert editor for asciidoc documents. Correct spelling, grammar, and punctuation of the provided text.\nMaintain the original tone and all formatting (especially AsciiDoc syntax and source blocks).\nOutput ONLY the corrected text. Do not add explanations or comments."
+              "prompt": "Correct spelling, grammar, and punctuation of the provided text in the user message.\nMaintain the original tone and all formatting (especially AsciiDoc/Markdown syntax and source blocks).\nOutput ONLY the corrected text. Do not add explanations or comments.",
+              "temperature": 0.1
             },
             {
               "name": "Simplify text",
-              "prompt": "You are an expert editor for asciidoc documents. Rewrite the provided German text to be clear and easily understandable for non-native students with a B2 language level.\nKeep all technical terms intact, but resolve overly nested sentences (Schachtelsätze) and avoid unnecessary passive voice.\nMaintain the original tone and all formatting (especially AsciiDoc syntax and source blocks).\nOutput ONLY the rewritten text. Do not add explanations or comments."
+              "prompt": "Rewrite the provided German text in the user message to be clear and easily understandable for non-native students with a B2 language level.\nKeep all technical terms intact, but resolve overly nested sentences (Schachtelsätze) and avoid unnecessary passive voice.\nMaintain the original tone and all formatting (especially AsciiDoc/Markdown syntax and source blocks).\nOutput ONLY the rewritten text. Do not add explanations or comments.",
+              "temperature": 0.2
+            },
+            {
+              "name": "Rewrite for Agent",
+              "prompt": "Structure the text in the user message so that an agent can read it in a token-efficient and compact way.\n\nYou have the following Markdown structural elements available, which you can use and combine:\n\n- Tables\n- Lists (ordered and unordered)\n- Plain text (prose)\n\nOutput ONLY the rewritten text. Do not add explanations or comments.",
+              "temperature": 0.2
             }
           ],
           "description": "List of system prompts available for the 'Send to AI' command."
