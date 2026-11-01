@@ -5,8 +5,8 @@ import MarkupSyntax from './MarkupSyntax';
 /**
  * Inserts clipboard content into the active editor as a formatted source block.
  * Prompts for a language identifier to enable syntax highlighting in the output.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  */
 export async function insertSourceBlock(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
     const language = await vscode.window.showInputBox({

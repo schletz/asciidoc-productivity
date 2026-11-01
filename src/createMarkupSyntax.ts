@@ -20,7 +20,7 @@ const markdownExtensions = ['.md', '.markdown'];
  * Picks the markup syntax for a document. The language id decides first; the file
  * extension is the fallback, because the language id `asciidoc` only exists when an
  * AsciiDoc extension is installed. Without one, .adoc files open as plain text.
- * @param document The document the command works on.
+ * @param document - The document the command works on.
  * @throws Error if the document is neither AsciiDoc nor Markdown.
  */
 export function createMarkupSyntax(document: MarkupDocument): MarkupSyntax {

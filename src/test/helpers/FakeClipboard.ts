@@ -12,8 +12,8 @@ export default class FakeClipboard {
 
     /**
      * Installs the fake into the sandbox; sandbox.restore() removes it again.
-     * @param sandbox Sinon sandbox of the current test.
-     * @param initialText Content that readText returns until the extension writes.
+     * @param sandbox - Sinon sandbox of the current test.
+     * @param initialText - Content that readText returns until the extension writes.
      */
     constructor(sandbox: sinon.SinonSandbox, initialText: string = '') {
         this.text = initialText;

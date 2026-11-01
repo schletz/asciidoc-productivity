@@ -1,21 +1,24 @@
 import * as vscode from 'vscode';
 import Docker from 'dockerode';
 
+/** Log of the preview, shared with PreviewService. */
 export const outputChannel = vscode.window.createOutputChannel("AsciiDoc Preview");
 
 /**
- * Manages the lifecycle of a local Kroki Docker container for PlantUML rendering.
- * Ensures only one instance runs during the preview session and cleans up upon exit.
+ * Runs a local `yuzutech/kroki` container, so PlantUML diagrams in the preview render
+ * offline. The container is bound to a random host port and removed when it stops.
  */
 export class KrokiContainerManager {
     private docker = new Docker();
     private container?: Docker.Container;
     private startupPromise?: Promise<void>;
+    /** Host port of the running container; undefined while none is running. */
     public port?: string;
 
     /**
-     * Pulls the yuzutech/kroki image if not present and starts a new container with a dynamic host port.
-     * Implements a locking mechanism to prevent race conditions on rapid calls.
+     * Pulls the image if missing, starts the container and waits until Kroki answers.
+     * Concurrent calls share one startup.
+     * @throws Error if Docker is unreachable or Kroki does not become ready.
      */
     public start(): Promise<void> {
         if (this.container) {
@@ -61,6 +64,7 @@ export class KrokiContainerManager {
         }
 
         outputChannel.appendLine('[INFO] Creating Kroki container...');
+        // Host port 0 lets Docker pick a free port; the actual one is read back after the start.
         this.container = await this.docker.createContainer({
             Image: 'yuzutech/kroki:latest',
             ExposedPorts: { '8000/tcp': {} },
@@ -73,21 +77,22 @@ export class KrokiContainerManager {
         await this.container.start();
         const info = await this.container.inspect();
         this.port = info.NetworkSettings.Ports['8000/tcp'][0].HostPort;
-        
+
         outputChannel.appendLine(`[INFO] Kroki container started on host port ${this.port}. Waiting for health check...`);
         await this.waitForKroki(this.port);
         outputChannel.appendLine('[INFO] Kroki server is up and running.');
     }
 
     /**
-     * Polls the Kroki server until it returns a successful HTTP response.
-     * Prevents the preview webview from requesting broken images while the internal Java server is booting.
-     * @param port - The dynamic host port bound to the container.
+     * Polls Kroki until it answers, because the Java server inside the container needs some
+     * seconds after the container start.
+     * @param port - Host port of the container.
+     * @throws Error after 20 attempts at 500 ms intervals.
      */
     private async waitForKroki(port: string): Promise<void> {
         const url = `http://localhost:${port}/`;
         const maxAttempts = 20;
-        
+
         for (let i = 0; i < maxAttempts; i++) {
             try {
                 const response = await fetch(url);
@@ -95,16 +100,16 @@ export class KrokiContainerManager {
                     return;
                 }
             } catch (e) {
-                // Connection refused is expected during early boot
+                // Connection refused is expected while the server boots.
             }
             await new Promise(r => setTimeout(r, 500));
         }
-        
+
         throw new Error('Kroki server did not become ready in time.');
     }
 
     /**
-     * Stops and removes the active Kroki container.
+     * Stops the container, which Docker then removes. Does nothing if none is running.
      */
     public async stop(): Promise<void> {
         if (!this.container) {
@@ -115,7 +120,7 @@ export class KrokiContainerManager {
             await this.container.stop();
             outputChannel.appendLine('[INFO] Kroki container stopped and removed.');
         } catch {
-            // Container might already be gone
+            // The container may already be gone, e.g. stopped outside VS Code.
         } finally {
             this.container = undefined;
             this.port = undefined;

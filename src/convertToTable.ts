@@ -7,8 +7,8 @@ import { parseDelimited } from './parseDelimited';
  * Converts the selected lines into a table. Every non-blank line becomes a row, a delimiter
  * entered by the user separates the cells and the first line becomes the header.
  * The table replaces the whole lines touched by the selection.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  */
 export async function convertToTable(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
     const selectedLines = editorService.getSelectedLines();

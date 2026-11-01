@@ -61,8 +61,8 @@ export default class MockLlmServer {
 
     /**
      * Answers all following requests with a successful completion.
-     * @param content Text the model "generates".
-     * @param truncated True to report that the output token limit was hit.
+     * @param content - Text the model "generates".
+     * @param truncated - True to report that the output token limit was hit.
      */
     public respondWith(content: string, truncated: boolean = false): void {
         this.answer = { status: 200, content, truncated, errorBody: '' };
@@ -70,8 +70,8 @@ export default class MockLlmServer {
 
     /**
      * Answers all following requests with an HTTP error.
-     * @param status HTTP status code, e.g. 400 or 500.
-     * @param body Raw response body, e.g. an API error JSON.
+     * @param status - HTTP status code, e.g. 400 or 500.
+     * @param body - Raw response body, e.g. an API error JSON.
      */
     public respondWithError(status: number, body: string): void {
         this.answer = { status, content: '', truncated: false, errorBody: body };
@@ -82,7 +82,7 @@ export default class MockLlmServer {
      * only speaks the Anthropic dialect when the host contains anthropic.com, so this is
      * the only way to exercise that code path locally. Extension and tests share the
      * global fetch of the extension host process.
-     * @param sandbox Sinon sandbox of the current test; restore() removes the redirect.
+     * @param sandbox - Sinon sandbox of the current test; restore() removes the redirect.
      */
     public interceptAnthropic(sandbox: sinon.SinonSandbox): void {
         const realFetch = globalThis.fetch;

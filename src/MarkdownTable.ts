@@ -19,7 +19,7 @@ export default class MarkdownTable {
 
     /**
      * Creates a table without alignment markers. Short rows are padded with empty cells.
-     * @param rows Table content; the first row is the header.
+     * @param rows - Table content; the first row is the header.
      */
     public static fromRows(rows: TableRows): MarkdownTable {
         return MarkdownTable.normalized(rows, []);
@@ -30,7 +30,7 @@ export default class MarkdownTable {
      * first delimiter row provides the alignments, further delimiter rows are dropped.
      * Unlike GFM, cells beyond the header width are kept and the header is padded instead,
      * so formatting never loses content.
-     * @param lines Source lines of the table, with or without indentation.
+     * @param lines - Source lines of the table, with or without indentation.
      */
     public static parse(lines: string[]): MarkdownTable {
         const rows: TableRows = [];
@@ -64,7 +64,7 @@ export default class MarkdownTable {
      * Writes the table with all columns padded to their widest cell, aligned according to the
      * delimiter row. Widths count code points, so wide characters (CJK, emoji) may still look
      * misaligned in the editor.
-     * @param indent Prefix for every line, e.g. to keep a table nested in a list.
+     * @param indent - Prefix for every line, e.g. to keep a table nested in a list.
      * @returns The table lines joined with LF, without a trailing line break; '' for no rows.
      */
     public render(indent: string = ''): string {

@@ -6,6 +6,7 @@ import ConfigurationService from './ConfigurationService';
 import { PdfReader } from "pdfreader";
 import { sourceTypes } from './globals';
 
+/** XML for attaching to a chat, Markdown for a NotebookLM source. */
 export type OutputFormat = 'xml' | 'markdown';
 
 interface FormatQuickPickItem extends vscode.QuickPickItem {
@@ -26,9 +27,9 @@ interface FilterCriteria {
 }
 
 /**
- * Extracts raw text content from a DOCX file.
- * @param uri - The URI of the DOCX file to process.
- * @returns A promise resolving to the extracted plain text string.
+ * Extracts the plain text of a Word document.
+ * @param uri - The .docx file.
+ * @returns The text, or an error note that is copied in place of the content.
  */
 async function copyDocx(uri: vscode.Uri): Promise<string> {
     try {
@@ -44,9 +45,9 @@ async function copyDocx(uri: vscode.Uri): Promise<string> {
 }
 
 /**
- * Extracts text content from a PDF file.
- * @param uri - The URI of the PDF file to process.
- * @returns A promise resolving to the extracted plain text string.
+ * Extracts the text items of a PDF, joined with spaces; line and page structure is lost.
+ * @param uri - The .pdf file.
+ * @returns The text, or an error note that is copied in place of the content.
  */
 async function copyPdf(uri: vscode.Uri): Promise<string> {
     try {
@@ -69,14 +70,16 @@ async function copyPdf(uri: vscode.Uri): Promise<string> {
     }
 }
 
-/** Map of supported file extensions to their respective extraction functions. */
+/** Text extractors for binary formats by extension; other files are read as text. */
 const parsers: Record<string, (filename: vscode.Uri) => Promise<string>> = {
     "docx": copyDocx,
     "pdf": copyPdf
 };
 
 /**
- * Manages the extraction and formatting of source files into XML or Markdown format for clipboard storage.
+ * Collects files below the targets into one XML or Markdown text for an LLM and copies it
+ * to the clipboard. Paths are relative to the first workspace folder. Directories starting
+ * with a dot are always skipped. Content is inserted without escaping.
  */
 class SourceCopier {
     private parentPath: string;
@@ -86,7 +89,9 @@ class SourceCopier {
     private contentRegex?: RegExp;
     private excludedFiles: string[];
     private excludedDirectories: string[];
+    /** Limit for extensions not in sourceTypes, e.g. docx and pdf. */
     private maxFileSizeBytes = 10_485_760;
+    /** Limit for extensions in sourceTypes. */
     private maxSourceFileSizeBytes = 51_200;
     private output: string;
     private format: OutputFormat;
@@ -94,14 +99,13 @@ class SourceCopier {
     private processedFilePaths = new Set<string>();
 
     /**
-     * Initializes the copier with target URIs, filter criteria, and configuration.
-     * @param targets - The list of file or directory URIs to process.
-     * @param filter - Filter criteria. Each provided regex acts as an active filter and
-     *  all active filters are combined with AND. `extensions` is anchored and matched
-     *  against the bare file extension, `filenames` is matched against the relative file
-     *  path and `content` is matched against the file content (with `.` matching newlines).
-     * @param configService - Configuration service providing exclusion lists.
-     * @param format - Output format to generate ('xml' or 'markdown').
+     * @param targets - Selected files and directories; the first one names the root if no
+     *   workspace is open.
+     * @param filter - Active filters, combined with AND. All are case-insensitive;
+     *   `extensions` is anchored, and in `content` the dot also matches newlines.
+     * @param configService - Source of the excluded directory and file names.
+     * @param format - Output format.
+     * @throws SyntaxError if a filter is not a valid regex.
      */
     constructor(
         targets: vscode.Uri[],
@@ -116,7 +120,6 @@ class SourceCopier {
             this.filenamesRegex = new RegExp(filter.filenames, 'i');
         }
         if (filter.content) {
-            // The 's' (dotAll) flag lets '.' also match newline characters.
             this.contentRegex = new RegExp(filter.content, 'is');
         }
         this.excludedFiles = configService.getExcludedFiles();
@@ -140,10 +143,12 @@ class SourceCopier {
     }
 
     /**
-     * Executes the file processing pipeline and handles clipboard/save operations.
-     * @param targets - The list of URIs to process.
+     * Collects all targets, writes the result to the clipboard and offers to save it as a file.
+     * @param targets - Selected files and directories.
      */
     public async execute(targets: vscode.Uri[]) {
+        // A target that contains another selected target is dropped, so selecting a folder
+        // and a file inside it copies only that file.
         const filteredTargets = targets.filter(target => {
             return !targets.some(other => {
                 if (target.fsPath === other.fsPath) { return false; }
@@ -201,8 +206,10 @@ class SourceCopier {
     }
 
     /**
-     * Processes a single file: validates extensions, size, and exclusions before extraction.
-     * @param fileUri - The URI of the file to process.
+     * Appends a file unless it is excluded, filtered out or already copied. A file over the
+     * size limit is listed with a note instead of its content; the content filter then
+     * tests that note.
+     * @param fileUri - The file.
      */
     private async processFile(fileUri: vscode.Uri) {
         const fsPath = fileUri.fsPath;
@@ -238,14 +245,13 @@ class SourceCopier {
             }
         }
         else {
-            fileContent = `This file was not processed because it has ${fileStat.size} Bytes. This exceeded the size limit of ${sizeLimit} bytes.`
+            fileContent = `This file was not processed because it has ${fileStat.size} Bytes. This exceeded the size limit of ${sizeLimit} bytes.`;
         }
 
         if (this.contentRegex && !this.contentRegex.test(fileContent)) { return; }
 
         this.processedFilePaths.add(fsPath);
         
-        // Use format-neutral language identifier (falls back to extension)
         const language = sourceTypes[ext] ?? ext;
 
         if (this.format === 'xml') {
@@ -258,8 +264,8 @@ class SourceCopier {
     }
 
     /**
-     * Recursively processes a directory and its contents.
-     * @param dirUri - The URI of the directory to process.
+     * Appends all files below a directory, skipping excluded and hidden directories.
+     * @param dirUri - The directory.
      */
     private async processDirectory(dirUri: vscode.Uri) {
         const entries = await vscode.workspace.fs.readDirectory(dirUri);
@@ -343,7 +349,6 @@ function promptForFilters(defaultExtensions: string): Promise<FilterCriteria | u
         quickPick.canSelectMany = true;
         quickPick.ignoreFocusOut = true;
         quickPick.items = buildItems();
-        // Preselect the extensions filter.
         quickPick.selectedItems = quickPick.items.filter(item => item.label === FILTER_EXTENSIONS);
 
         let accepted = false;
@@ -391,10 +396,11 @@ function promptForFilters(defaultExtensions: string): Promise<FilterCriteria | u
 }
 
 /**
- * Entry point for the copy sources command. Collects targets and initiates processing.
- * @param clickedUri - The URI of a single clicked item.
- * @param selectedUris - The list of URIs from multi-selection.
- * @param configurationService - Configuration service providing defaults.
+ * Command handler: asks for the output format and the filters, then copies the sources.
+ * Targets are the explorer selection, else the clicked item, else the first workspace folder.
+ * @param clickedUri - Item the context menu was opened on; undefined from the command palette.
+ * @param selectedUris - All selected explorer items.
+ * @param configurationService - Source of the default extensions and the exclusion lists.
  */
 export async function copySourcesToClipboard(
     clickedUri: vscode.Uri | undefined,

@@ -1,16 +1,16 @@
 /**
- * Maps file extensions to their corresponding source block syntax identifiers.
- * Erweitert um alle unterstützten Sprachen des Source Formatters.
+ * Language id of the source block for each file extension (lowercase, without dot).
+ * A known extension also gets the smaller size limit when copying sources. The keys must
+ * equal the default of the includeExtensions setting in package.json and ConfigurationService.
  */
 export const sourceTypes: Record<string, string> = {
-  // A
   "abap": "abap",
   "as": "actionscript",
   "actionscript": "actionscript",
   "ada": "ada",
   "adb": "ada",
   "ads": "ada",
-  "conf": "conf", // Config File
+  "conf": "conf",
   "apache": "apache",
   "cls": "apex",
   "trigger": "apex",
@@ -22,7 +22,6 @@ export const sourceTypes: Record<string, string> = {
   "aug": "augeas",
   "awk": "awk",
 
-  // B
   "bat": "batchfile",
   "cmd": "batchfile",
   "bbc": "bbcbasic",
@@ -36,7 +35,6 @@ export const sourceTypes: Record<string, string> = {
   "bsl": "bsl",
   "os": "bsl",
 
-  // C
   "c": "c",
   "h": "c",
   "cs": "csharp",
@@ -64,7 +62,6 @@ export const sourceTypes: Record<string, string> = {
   "cypher": "cypher",
   "pyx": "cython",
 
-  // D - E
   "d": "d",
   "dfy": "dafny",
   "dart": "dart",
@@ -86,7 +83,6 @@ export const sourceTypes: Record<string, string> = {
   "erl": "erlang",
   "hrl": "erlang",
 
-  // F - H
   "factor": "factor",
   "f90": "fortran",
   "f": "fortran",
@@ -110,7 +106,7 @@ export const sourceTypes: Record<string, string> = {
   "haml": "haml",
   "hbs": "handlebars",
   "hcl": "hcl",
-  "tf": "terraform", // Terraform verwendet typischerweise .tf
+  "tf": "terraform",
   "hs": "haskell",
   "hx": "haxe",
   "hlsl": "hlsl",
@@ -121,8 +117,7 @@ export const sourceTypes: Record<string, string> = {
   "http": "http",
   "hy": "hylang",
 
-  // I - L
-  "pro": "prolog", // .pro wird oft für Prolog genutzt
+  "pro": "prolog", // Also IDL and Qt project files.
   "idl": "idlang",
   "idr": "idris",
   "ipf": "igorpro",
@@ -159,12 +154,11 @@ export const sourceTypes: Record<string, string> = {
   "lus": "lustre",
   "lut": "lutin",
 
-  // M - O
   "magik": "magik",
   "mk": "make",
   "mak": "make",
   "md": "markdown",
-  "m": "objective_c", // Wird sowohl für Obj-C als auch MATLAB genutzt. Obj-C ist häufiger.
+  "m": "objective_c", // Also MATLAB; .matlab maps to MATLAB.
   "matlab": "matlab",
   "meson": "meson",
   "mzn": "minizinc",
@@ -183,10 +177,9 @@ export const sourceTypes: Record<string, string> = {
   "ocl": "ocl",
   "p": "openedge",
 
-  // P - R
   "p4": "p4",
   "pas": "pascal",
-  "pl": "perl", // Perl ist der Standard für .pl
+  "pl": "perl", // Also Prolog; .prolog maps to Prolog.
   "pm": "perl",
   "php": "php",
   "phtml": "php",
@@ -218,7 +211,6 @@ export const sourceTypes: Record<string, string> = {
   "rb": "ruby",
   "rs": "rust",
 
-  // S - T
   "sas": "sas",
   "sass": "sass",
   "scala": "scala",
@@ -256,7 +248,6 @@ export const sourceTypes: Record<string, string> = {
   "twig": "twig",
   "ts": "typescript",
 
-  // U - Z
   "vala": "vala",
   "vcl": "vcl",
   "vm": "velocity",
@@ -270,7 +261,7 @@ export const sourceTypes: Record<string, string> = {
   "vue": "vue",
   "wlk": "wollok",
   "xml": "xml",
-  "csproj": "xml", // Übernommen aus deinem Original
+  "csproj": "xml",
   "xojo_code": "xojo",
   "xpath": "xpath",
   "xq": "xquery",
@@ -280,8 +271,7 @@ export const sourceTypes: Record<string, string> = {
   "yang": "yang",
   "zig": "zig",
 
-  // Sonstige (AsciiDoc & Diagramme)
   "adoc": "asciidoc",
   "properties": "properties",
-  "puml": "plantuml" // Fallback für PlantUML
+  "puml": "plantuml"
 };

@@ -3,11 +3,14 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { KrokiContainerManager, outputChannel } from './KrokiContainerManager';
 
+/** Debug switch: shows the generated HTML as text instead of rendering it. */
 const printRawHtml = false;
 
 /**
- * Service to manage the AsciiDoc Preview Panel.
- * Encapsulates the webview state and ensures events are locked to the initial document.
+ * Owns the single AsciiDoc preview panel of the session. The panel shows the document from
+ * which the preview was last opened; switching to another editor tab keeps it on that
+ * document, so the preview stays visible while the user copies from other files.
+ * Rendering happens in the webview (lib/preview.js); this class only sends the text.
  */
 export class PreviewService {
     private static instance: PreviewService;
@@ -19,8 +22,7 @@ export class PreviewService {
     private constructor() { }
 
     /**
-     * Retrieves the singleton instance of the PreviewService.
-     * @returns The active PreviewService instance.
+     * @returns The instance shared by the command and deactivate().
      */
     public static getInstance(): PreviewService {
         if (!PreviewService.instance) {
@@ -30,9 +32,9 @@ export class PreviewService {
     }
 
     /**
-     * Initializes and shows the preview panel for the currently active AsciiDoc editor.
-     * Continues with limited functionality if Docker/Kroki fails.
-     * @param context - The VS Code extension context.
+     * Shows the preview of the active editor's document, creating the panel and starting
+     * Kroki on first use. An existing panel switches to the active document.
+     * @param context - Extension context; provides the path of lib/.
      */
     public async showPreview(context: vscode.ExtensionContext): Promise<void> {
         const editor = vscode.window.activeTextEditor;
@@ -45,8 +47,7 @@ export class PreviewService {
         this.sourceUri = editor.document.uri;
 
         if (!this.panel) {
-            // Show the preview immediately so the user is not blocked while the Kroki container boots.
-            // PlantUML diagrams render later once the container is ready (see startKrokiInBackground).
+            // The panel opens at once; diagrams appear after the refresh that follows the Kroki start.
             this.createPanel(context, editor.document);
             this.startKrokiInBackground();
         } else {
@@ -56,9 +57,10 @@ export class PreviewService {
     }
 
     /**
-     * Starts the local Kroki container in the background and refreshes the preview once it is ready.
-     * The preview is already visible at this point; only the PlantUML diagrams (whose image URLs point
-     * to localhost and are invalid until the container responds) become valid after the refresh.
+     * Starts Kroki behind a progress notification and re-renders once it answers, so the
+     * diagram URLs point to the local server. Until then, or if the start fails, no
+     * `:kroki-server-url:` is set and asciidoctor-kroki uses the public kroki.io. This is
+     * intended: offline the diagrams are missing, online kroki.io bridges the startup time.
      */
     private startKrokiInBackground(): void {
         void vscode.window.withProgress({
@@ -76,12 +78,10 @@ export class PreviewService {
                 } else {
                     vscode.window.showErrorMessage('Failed to start local Kroki container. Preview will open without PlantUML support. ' + error.message);
                 }
-                // We catch the error to prevent double notifications and allow fallback preview.
                 outputChannel.appendLine(`[ERROR] Fallback mode: Preview will open without PlantUML support.`);
                 return;
             }
 
-            // Container is ready: re-render so the diagram image URLs become valid and diagrams appear.
             const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === this.sourceUri?.toString());
             if (doc) {
                 this.updateContent(doc);
@@ -89,6 +89,13 @@ export class PreviewService {
         });
     }
 
+    /**
+     * Creates the webview beside the editor. Local resources are limited to lib/ and the
+     * workspace folders (or the document's folder without a workspace), so images and
+     * includes of the document can load.
+     * @param context - Extension context; provides the path of lib/.
+     * @param document - Document shown first; its folder is the base URL for relative paths.
+     */
     private createPanel(context: vscode.ExtensionContext, document: vscode.TextDocument): void {
         const documentDir = vscode.Uri.file(path.dirname(document.uri.fsPath));
         const localResourceRoots: vscode.Uri[] = [vscode.Uri.joinPath(context.extensionUri, 'lib')];
@@ -116,8 +123,12 @@ export class PreviewService {
         this.panel.webview.html = this.getWebviewContent(libUri, baseUri);
 
         this.setupEventListeners();
+        // The Kroki container needs time to start, and preview.js registers its message
+        // listener only after all scripts have loaded; an earlier message would be lost.
         setTimeout(() => this.updateContent(document), 500);
 
+        // Re-sends the document whenever the panel becomes visible again, e.g. after it was
+        // moved into a new window, so the preview keeps showing the source document.
         this.panel.onDidChangeViewState(e => {
             if (e.webviewPanel.visible) {
                 const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === this.sourceUri?.toString());
@@ -130,6 +141,10 @@ export class PreviewService {
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     }
 
+    /**
+     * Re-renders on every change of the source document; changes to other documents,
+     * including the one in the active tab, are ignored on purpose.
+     */
     private setupEventListeners(): void {
         const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(event => {
             if (this.sourceUri && event.document.uri.toString() === this.sourceUri.toString()) {
@@ -141,9 +156,11 @@ export class PreviewService {
     }
 
     /**
-     * Injects Kroki server configuration or a warning message if unavailable.
-     * @param text - The original AsciiDoc source.
-     * @returns Source with injected attributes or warnings.
+     * Points asciidoctor-kroki to the local container by setting `:kroki-server-url:` right
+     * after the document title, where header attributes must be. Without a running container
+     * the text is returned unchanged.
+     * @param text - AsciiDoc source with includes already resolved.
+     * @returns The source with the attribute.
      */
     private injectKrokiAttribute(text: string): string {
         if (!this.krokiManager.port) {
@@ -160,6 +177,10 @@ export class PreviewService {
         return `${krokiAttr}\n${text}`;
     }
 
+    /**
+     * Sends the prepared source to the webview, which renders it completely.
+     * @param document - Document to show.
+     */
     private updateContent(document: vscode.TextDocument): void {
         if (!this.panel) {
             return;
@@ -171,6 +192,9 @@ export class PreviewService {
         this.panel.webview.postMessage({ command: 'update', text: resolvedText });
     }
 
+    /**
+     * Cleans up after the user closed the panel and stops the container.
+     */
     private dispose(): void {
         this.panel = undefined;
         this.sourceUri = undefined;
@@ -186,13 +210,20 @@ export class PreviewService {
     }
 
     /**
-         * Public teardown method to be called upon extension deactivation.
-         * Ensures the Docker container is completely stopped when VS Code is closed.
-         */
+     * Stops the Kroki container; called on deactivation.
+     */
     public async shutdown(): Promise<void> {
         await this.krokiManager.stop();
     }
 
+    /**
+     * Replaces `include::` lines with the file content, because asciidoctor.js in the webview
+     * has no file access. Only one level is resolved, and attributes such as `tag=` or
+     * `lines=` are ignored.
+     * @param text - Document source.
+     * @param documentUri - Document location; paths are relative to its folder.
+     * @returns The source with includes inlined, or an `// ERROR:` comment line per failed include.
+     */
     private resolveLocalIncludes(text: string, documentUri: vscode.Uri): string {
         if (documentUri.scheme !== 'file') {
             return text;
@@ -215,6 +246,13 @@ export class PreviewService {
         });
     }
 
+    /**
+     * Builds the webview HTML. The script order matters: the MathJax configuration must
+     * precede tex-mml-chtml.js, and preview.js needs all libraries loaded. The highlight.js
+     * theme follows the VS Code theme. `img-src` allows http(s) for the Kroki images.
+     * @param libUri - Webview URI of lib/.
+     * @param baseUri - Webview URI of the document's folder, used as base for relative image paths.
+     */
     private getWebviewContent(libUri: vscode.Uri, baseUri: vscode.Uri): string {
         const baseHref = baseUri.toString().endsWith('/') ? baseUri.toString() : baseUri.toString() + '/';
 

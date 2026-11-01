@@ -17,9 +17,10 @@ interface FileItem {
 }
 
 /**
- * Recursively gathers files from a target URI, excluding hidden directories.
- * @param targetUri - The starting file or directory URI.
- * @param fileItems - Accumulator array for collected file metadata.
+ * Collects every file below a target. Only directories starting with a dot are skipped;
+ * the exclusion settings of copySourcesToClipboard do not apply.
+ * @param targetUri - File or directory.
+ * @param fileItems - Receives the files with their size.
  */
 async function collectFiles(
     targetUri: vscode.Uri,
@@ -42,11 +43,13 @@ async function collectFiles(
 }
 
 /**
- * Processes selected files or directories through an LLM and overwrites them with the response.
- * @param clickedUri - The URI of a single file or folder clicked in the explorer.
- * @param selectedUris - Array of URIs explicitly selected by the user.
- * @param configurationService - Service providing system prompts and settings.
- * @param llmService - Service handling communication with the LLM API.
+ * Command handler: sends every selected file through the chosen system prompt and overwrites
+ * it with the answer, without backup. A truncated answer leaves the file unchanged.
+ * Cancelling takes effect between two files.
+ * @param clickedUri - Item the context menu was opened on.
+ * @param selectedUris - All selected explorer items; take precedence over clickedUri.
+ * @param configurationService - Source of the system prompts.
+ * @param llmService - Sends the requests; remembers temperature rejections across the files.
  */
 export async function sendFilesToAi(
     clickedUri: vscode.Uri | undefined,
@@ -136,7 +139,7 @@ export async function sendFilesToAi(
             const fileItem = fileItems[i];
             const fileName = path.basename(fileItem.uri.fsPath);
 
-            // Calculate proportional progress based on file size relative to total
+            // Progress grows with the file size, which approximates the processing time.
             const incrementPercentage = totalBytes > 0 ? (fileItem.size / totalBytes) * 100 : 0;
 
             progress.report({
@@ -146,20 +149,19 @@ export async function sendFilesToAi(
 
             try {
                 const fileData = await vscode.workspace.fs.readFile(fileItem.uri);
-                // Decode buffer content preserving original encoding detection logic
                 const fileContent = (Buffer.from(fileData) as any).getStringWithEncodingDetection();
 
                 const result = await llmService.sendPrompt(
                     systemPrompt, fileContent, temperature, outputChannel
                 );
-                if (result.stats && result.stats.hasLengethExeeded) {
+                if (result.stats && result.stats.hasLengthExceeded) {
                     const message = `WARNING: Skipped processing ${fileItem.uri}: The limit for maxOutputTokens has been exceeded.`;
                     vscode.window.showWarningMessage(message, { modal: true });
                     continue;
                 }
                 let finalContent = result.content;
 
-                // Remove markdown code block wrappers if present
+                // Models often wrap a whole file in a code fence despite the instruction.
                 if (finalContent.startsWith('```')) {
                     finalContent = finalContent.replace(/^```[a-zA-Z]*\r?\n/, '');
                     finalContent = finalContent.replace(/\r?\n```$/, '');

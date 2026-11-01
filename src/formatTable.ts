@@ -5,8 +5,8 @@ import MarkupSyntax from './MarkupSyntax';
 /**
  * Aligns the columns of the table under the cursor. With a selection, the active end of the
  * selection counts as cursor.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  * @throws Error if the syntax has no table formatting (AsciiDoc).
  */
 export async function formatTable(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {

@@ -10,7 +10,7 @@ export default class MockFileServer {
 
     /**
      * Starts a server on a free port of the loopback interface.
-     * @param files Response bodies by URL path, e.g. { '/image.png': pngBytes }.
+     * @param files - Response bodies by URL path, e.g. { '/image.png': pngBytes }.
      */
     public static async start(files: Record<string, Buffer>): Promise<MockFileServer> {
         const server = http.createServer((req, res) => {
@@ -24,7 +24,7 @@ export default class MockFileServer {
 
     /**
      * Absolute URL of a path on this server.
-     * @param path URL path starting with a slash.
+     * @param path - URL path starting with a slash.
      */
     public url(path: string): string {
         const { port } = this.server.address() as AddressInfo;

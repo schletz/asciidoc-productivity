@@ -1,22 +1,23 @@
 import * as vscode from 'vscode';
 
+/** A preset task of the "Send to AI" commands. */
 export interface SystemPrompt {
+    /** Label shown in the QuickPick; identifies the prompt when merging with the built-in ones. */
     name: string;
     prompt: string;
+    /** Optional in user settings; callers fall back to 0.1. */
     temperature: number;
 }
 
 /**
- * Manages retrieval of extension settings from the VSCode workspace configuration.
- * Provides fallback defaults for all settings and handles merging of custom system prompts.
+ * Reads the settings of the section `asciidoc-productivity`. Every getter repeats the default
+ * declared in package.json, so both places must be changed together.
  */
 export default class ConfigurationService {
     constructor() { }
 
     /**
-     * Retrieves the configured file extensions allowed for processing.
-     * Returns a whitespace-stripped, pipe-separated string of extensions.
-     * @returns The formatted extension string or defaults if unconfigured.
+     * @returns The pipe-separated extension regex for copying sources, without whitespace.
      */
     public getIncludeExtensions(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -29,9 +30,7 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the list of directories to exclude from analysis.
-     * Normalizes names to lowercase for case-insensitive matching.
-     * @returns Array of excluded directory paths or defaults.
+     * @returns Directory names skipped when copying sources, lowercased for case-insensitive matching.
      */
     public getExcludedDirectories(): string[] {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -42,9 +41,7 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the list of files to exclude from analysis.
-     * Normalizes names to lowercase for case-insensitive matching.
-     * @returns Array of excluded file paths or defaults.
+     * @returns File names skipped when copying sources, lowercased for case-insensitive matching.
      */
     public getExcludedFiles(): string[] {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -55,8 +52,8 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the base URL endpoint for AI completion requests.
-     * @returns The API endpoint URL or defaults to local LM Studio.
+     * @returns The full chat completions URL of an OpenAI-compatible endpoint, or the base URL
+     *   (e.g. `https://api.anthropic.com/v1/`) for the Anthropic Messages API.
      */
     public getCompletionsUrl(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -67,8 +64,7 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the identifier or path of the LLM model to use for completions.
-     * @returns The model identifier string or defaults to Qwen 35B.
+     * @returns The model identifier sent in every LLM request.
      */
     public getLlm(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -79,8 +75,7 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the maximum number of tokens allowed in AI responses.
-     * @returns The token limit integer or defaults to 4096.
+     * @returns The `max_tokens` value of LLM requests.
      */
     public getMaxOutputTokens(): number {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -91,8 +86,7 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the default target language code for text processing tasks.
-     * @returns The language code string or defaults to "en-US".
+     * @returns The language prefilled in the input box of the translate command.
      */
     public getDefaultTargetLanguage(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -103,8 +97,7 @@ export default class ConfigurationService {
     }
 
     /**
-     * Retrieves the API key used for authenticating with external AI services.
-     * @returns The API key string or empty string if not configured.
+     * @returns The API key for cloud endpoints; empty for local servers.
      */
     public getApiKey(): string {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -112,9 +105,10 @@ export default class ConfigurationService {
     }
 
     /**
-     * Merges user-defined system prompts with built-in defaults.
-     * User-provided prompts take precedence; default prompts are appended only if their names do not conflict.
-     * @returns Array of combined system prompt objects.
+     * Returns the user's prompts followed by every built-in prompt whose name the user has not
+     * taken. The built-in list mirrors the default in package.json, which is never read here
+     * because `inspect` only returns explicitly set values.
+     * @returns The prompts in QuickPick order.
      */
     public getSystemPrompts(): SystemPrompt[] {
         const config = vscode.workspace.getConfiguration('asciidoc-productivity');
@@ -138,7 +132,7 @@ export default class ConfigurationService {
         ];
 
         const configValue = config.inspect<SystemPrompt[]>('systemPrompts');
-        // Prioritize global settings over workspace settings for user prompts
+        // The workspace list is only used if no global list exists; the two are not merged.
         const userPrompts = configValue?.globalValue || configValue?.workspaceValue || [];
 
         const combinedPrompts = [...userPrompts];

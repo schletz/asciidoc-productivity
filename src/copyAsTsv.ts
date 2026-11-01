@@ -4,8 +4,8 @@ import MarkupSyntax from './MarkupSyntax';
 
 /**
  * Extracts the table in the active editor selection and copies it to the clipboard as TSV.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  */
 export async function copyAsTsv(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
     const text = editorService.performEditorOperations(editor =>

@@ -1,3 +1,9 @@
+/*
+ * Styles of the AsciiDoc preview webview. The fonts in lib/fonts are those of the default
+ * asciidoctor-pdf theme (Noto Serif, M+ 1mn), so the preview looks like the exported PDF.
+ * Font Awesome provides the admonition icons (`icons: font`); all files are local because
+ * the extension must work offline.
+ */
 @font-face {
     font-family: 'Noto Serif';
     src: url('fonts/notoserif-regular-subset.ttf') format('truetype');

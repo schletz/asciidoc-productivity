@@ -3,10 +3,10 @@ import EditorService from './EditorService';
 import MarkupSyntax from './MarkupSyntax';
 
 /**
- * Inserts an image block into the current document by downloading
- * a URL from the clipboard and saving it locally.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * Downloads the image whose URL is in the clipboard, saves it where the user chooses and
+ * inserts a reference that also names the URL, so the origin stays documented.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  */
 export async function insertImageBlock(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
     const clipboardText = await vscode.env.clipboard.readText();

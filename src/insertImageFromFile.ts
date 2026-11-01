@@ -2,13 +2,12 @@ import EditorService from './EditorService';
 import MarkupSyntax from './MarkupSyntax';
 
 /**
- * Inserts an image into the current document by prompting the user to select a file.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
- * @returns {Promise<void>} A promise that resolves when the operation completes or is cancelled.
+ * Lets the user pick an image file and inserts a reference with the path relative to the
+ * document. Unlike the other image commands it does not require a saved document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  */
 export async function insertImageFromFile(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
-    // Retrieve the selected image path from the system dialog
     const imagePath = await editorService.showOpenDialog({
         canSelectMany: false,
         openLabel: 'Select image',
@@ -16,7 +15,6 @@ export async function insertImageFromFile(editorService: EditorService, syntax: 
     });
 
     if (imagePath) {
-        // Convert the absolute path to a document-relative path
         const relativePath = editorService.getRelativePath(imagePath);
         await editorService.insertAtCurrentPosition(syntax.image(relativePath));
     }

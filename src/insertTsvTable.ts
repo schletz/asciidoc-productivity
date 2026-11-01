@@ -5,8 +5,8 @@ import { parseTsv } from './parseTsv';
 
 /**
  * Reads TSV data from the clipboard and inserts it as a table at the current cursor position.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  */
 export async function insertTsvTable(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
     const clipboardText = await vscode.env.clipboard.readText();

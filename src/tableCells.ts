@@ -2,7 +2,7 @@
  * Splits a table row at every pipe that is not escaped with a backslash and unescapes
  * the cells. Shared by the AsciiDoc and Markdown table parsers, which both escape a pipe
  * inside a cell as `\|`.
- * @param row Row text without the leading pipe.
+ * @param row - Row text without the leading pipe.
  * @returns The trimmed, unescaped cells.
  */
 export function splitTableCells(row: string): string[] {
@@ -11,7 +11,7 @@ export function splitTableCells(row: string): string[] {
 
 /**
  * Escapes pipes in a cell so they do not end the cell early.
- * @param cell Plain cell text.
+ * @param cell - Plain cell text.
  */
 export function escapeTableCell(cell: string): string {
     return cell.replace(/\|/g, '\\|');

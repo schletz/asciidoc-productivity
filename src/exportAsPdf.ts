@@ -9,11 +9,12 @@ const outputChannel = vscode.window.createOutputChannel("AsciiDoc PDF Export");
 const docker = new Docker();
 
 /**
- * Handles theme parameter prompting and preparation.
- * Returns Docker arguments and an optional temporary file path for cleanup.
- * @param dirPath - The directory containing the source file.
- * @param baseName - The filename without extension.
- * @returns Object containing theme arguments and optional temp theme path.
+ * Asks for a PDF theme: first `<baseName>.yml` next to the document if it exists, then any
+ * theme file. The container only sees the document's folder, so a theme outside of it is
+ * copied into that folder as a temporary file.
+ * @param dirPath - Folder of the document.
+ * @param baseName - File name of the document without extension.
+ * @returns The `--theme` arguments (empty without theme) and the temporary copy to delete afterwards.
  */
 async function getThemeParameter(dirPath: string, baseName: string): Promise<{ themeArgs: string[], tempThemePath?: string }> {
     let tempThemePath: string | undefined = undefined;
@@ -46,7 +47,6 @@ async function getThemeParameter(dirPath: string, baseName: string): Promise<{ t
             if (selectedFiles && selectedFiles.length > 0) {
                 const selectedThemePath = selectedFiles[0].fsPath;
 
-                // Check if the file is already inside the workspace directory
                 if (selectedThemePath.toLowerCase().startsWith(dirPath.toLowerCase())) {
                     const relThemePath = path.relative(dirPath, selectedThemePath).replace(/\\/g, '/');
                     themeArgs = ['--theme', relThemePath];
@@ -66,7 +66,8 @@ async function getThemeParameter(dirPath: string, baseName: string): Promise<{ t
 }
 
 /**
- * Verifies Docker image existence and builds it in-memory if missing.
+ * Builds the image `asciidoctor-pandoc` from an in-memory Dockerfile if it does not exist.
+ * An existing image is never rebuilt; changes to the Dockerfile need the image to be deleted.
  */
 async function ensureDockerImage(): Promise<void> {
     try {
@@ -104,11 +105,13 @@ CMD ["sh"]
 }
 
 /**
- * Creates and runs the AsciiDoc container, streaming logs to the output channel.
- * @param dirPath - The workspace directory path.
- * @param fileName - The source filename.
- * @param targetPdf - The destination PDF filename.
- * @param themeParam - Array of theme-related Docker arguments.
+ * Runs asciidoctor-pdf in a container with the document's folder mounted as /documents and
+ * streams its output to the output channel.
+ * @param dirPath - Folder of the document; the PDF is written there.
+ * @param fileName - File name of the document.
+ * @param targetPdf - File name of the PDF.
+ * @param themeParam - `--theme` arguments, possibly empty.
+ * @throws Error if the conversion exits with a non-zero code.
  */
 async function runAsciidoctorContainer(
     dirPath: string,
@@ -159,8 +162,9 @@ async function runAsciidoctorContainer(
 
 
 /**
- * Orchestrates the PDF export workflow for a given file URI.
- * @param clickedUri - The VS Code URI of the file to convert.
+ * Command handler: converts an AsciiDoc file to `<name>.pdf` in the same folder, overwriting
+ * an existing PDF. Errors are shown as messages.
+ * @param clickedUri - The .adoc file from the explorer; undefined from the command palette.
  */
 export async function exportAsPdf(clickedUri: vscode.Uri) {
     if (!clickedUri) {
@@ -190,6 +194,7 @@ export async function exportAsPdf(clickedUri: vscode.Uri) {
 
             await runAsciidoctorContainer(dirPath, fileName, targetPdf, themeArgs);
 
+            // asciidoctor-diagram leaves its cache folder next to the document.
             const cacheFolder = path.join(dirPath, '.asciidoctor');
             if (fs.existsSync(cacheFolder)) {
                 fs.rmSync(cacheFolder, { recursive: true, force: true });
@@ -198,7 +203,7 @@ export async function exportAsPdf(clickedUri: vscode.Uri) {
             vscode.window.showInformationMessage(`Export successful: ${targetPdf}`);
             outputChannel.appendLine('[INFO] Done!');
         } catch (error: any) {
-            if (error.syscall == 'connect') {
+            if (error.syscall === 'connect') {
                 vscode.window.showErrorMessage(
                     "Unable to access docker. Run 'docker ps' in the terminal to check if docker is running and if you have the necessary permissions."
                 );

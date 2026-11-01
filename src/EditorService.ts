@@ -3,16 +3,15 @@ import * as path from 'path';
 import { Uri } from 'vscode';
 
 /**
- * Encapsulates common VS Code editor operations and utilities.
- * Provides a safe interface for interacting with the active text editor,
- * file dialogs, and path resolution within an extension context.
+ * Wraps the text editor that is active when the service is created. Markup commands use it
+ * for edits, dialogs and paths relative to the document; the editor stays the same even if
+ * the user switches tabs while a dialog is open.
  */
 export default class EditorService {
     private editor: vscode.TextEditor;
 
     /**
-     * Initializes the service by capturing the currently active text editor.
-     * @throws Error if no text editor is currently open in VS Code.
+     * @throws Error if no text editor is active.
      */
     constructor() {
         const activeEditor = vscode.window.activeTextEditor;
@@ -23,19 +22,18 @@ export default class EditorService {
     }
 
     /**
-     * Executes a provided callback function against the current editor instance.
-     * Enables type-safe operations requiring direct access to the editor object.
-     * @param operations A function that receives the active editor and returns a result of type T.
-     * @returns The return value of the executed callback.
+     * Gives a callback direct access to the editor, for reads the service does not cover.
+     * @param operations - Callback receiving the editor.
+     * @returns The callback's result.
      */
     public performEditorOperations<T>(operations: (editor: vscode.TextEditor) => T): T {
         return operations(this.editor);
     }
 
     /**
-     * Inserts text at the current cursor position using VS Code's edit API.
-     * @param block The string content to insert.
-     * @returns True if the operation succeeded, false otherwise.
+     * Inserts text at the active end of the selection; a selection is not replaced.
+     * @param block - Text to insert.
+     * @returns True if the edit was applied.
      */
     public async insertAtCurrentPosition(block: string): Promise<boolean> {
         return this.editor.edit(editBuilder => {
@@ -66,9 +64,9 @@ export default class EditorService {
     /**
      * Replaces whole lines of the document. Unchanged text is not written, so the document
      * does not become dirty without a reason.
-     * @param startLine First line to replace, zero-based.
-     * @param endLine Last line to replace, zero-based and inclusive; its line break is kept.
-     * @param text Replacement text; VS Code converts its line breaks to the document's EOL.
+     * @param startLine - First line to replace, zero-based.
+     * @param endLine - Last line to replace, zero-based and inclusive; its line break is kept.
+     * @param text - Replacement text; VS Code converts its line breaks to the document's EOL.
      * @returns True if the text is in place, false if the edit was rejected.
      */
     public async replaceLines(startLine: number, endLine: number, text: string): Promise<boolean> {
@@ -81,9 +79,9 @@ export default class EditorService {
     }
 
     /**
-     * Retrieves the directory URI for the current document or workspace fallback.
-     * @param useWorkspaceAsDefault When true, returns the first workspace folder if the document is not a file. Defaults to true.
-     * @returns The target URI, or undefined if no valid path can be resolved.
+     * Gets the folder that dialogs open in.
+     * @param useWorkspaceAsDefault - Whether an unsaved document falls back to the first workspace folder.
+     * @returns The document's folder, the fallback, or undefined.
      */
     public getDocumentPath(useWorkspaceAsDefault: boolean = true): Uri | undefined {
         if (this.editor.document.uri.scheme === 'file') {
@@ -95,9 +93,9 @@ export default class EditorService {
     }
 
     /**
-     * Opens a file selection dialog with the current document's directory as the default location.
-     * @param options Optional VS Code open dialog configuration overrides.
-     * @returns The filesystem path of the selected file, or undefined if cancelled.
+     * Shows an open dialog in the document's folder.
+     * @param options - Overrides for the dialog options.
+     * @returns The path of the first selected file, or undefined if cancelled.
      */
     public async showOpenDialog(options?: vscode.OpenDialogOptions): Promise<string | undefined> {
         const defaultOptions: vscode.OpenDialogOptions = { defaultUri: this.getDocumentPath() };
@@ -106,9 +104,9 @@ export default class EditorService {
     }
 
     /**
-     * Opens a save-as dialog with the current document's directory as the default location.
-     * @param options Optional VS Code save dialog configuration overrides.
-     * @returns The filesystem path for saving, or undefined if cancelled.
+     * Shows a save dialog in the document's folder.
+     * @param options - Overrides for the dialog options.
+     * @returns The chosen path, or undefined if cancelled.
      */
     public async showSaveDialog(options?: vscode.SaveDialogOptions): Promise<string | undefined> {
         const defaultOptions: vscode.SaveDialogOptions = { defaultUri: this.getDocumentPath() };
@@ -117,18 +115,19 @@ export default class EditorService {
     }
 
     /**
-     * Checks whether the current document is backed by a local file rather than an in-memory or remote resource.
-     * @returns True if the document scheme is 'file', false otherwise (e.g., untitled, scratchpad, or remote).
+     * Checks whether the document is a file on disk. Relative paths need a document folder;
+     * untitled documents have none.
+     * @returns True for the `file` scheme.
      */
     public isDocumentSaved(): boolean {
         return this.editor.document.uri.scheme === 'file';
     }
 
     /**
-     * Calculates a forward-slash relative path from the current document's directory to a target path.
-     * Normalizes backslashes, as AsciiDoc and Markdown both expect forward slashes.
-     * @param targetPath The absolute or relative path to resolve against the current document.
-     * @returns The computed relative path string.
+     * Computes the path from the document's folder to a target, with forward slashes as
+     * AsciiDoc and Markdown expect them.
+     * @param targetPath - Absolute path of the target.
+     * @returns The relative path.
      */
     public getRelativePath(targetPath: string): string {
         const docPath = path.dirname(this.editor.document.uri.fsPath);
@@ -136,8 +135,7 @@ export default class EditorService {
     }
 
     /**
-     * Brings the current editor view to focus by re-showing its associated text document.
-     * @returns A promise that resolves when the editor is focused.
+     * Moves the focus back to the editor, e.g. after an explorer command took it.
      */
     public async focusEditor(): Promise<void> {
         if (this.editor && this.editor.document) {

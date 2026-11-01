@@ -6,9 +6,9 @@ import { sourceTypes } from './globals';
 
 /**
  * Inserts the content of a file as a source block at the current cursor position.
- * @param editorService The active editor that receives the block.
- * @param syntax Markup of the active document.
- * @param clickedUri The URI of the target file, typically triggered from the explorer view.
+ * @param editorService - The active editor that receives the block.
+ * @param syntax - Markup of the active document.
+ * @param clickedUri - The URI of the target file, typically triggered from the explorer view.
  * @throws Error if no file URI is given, e.g. when called from the command palette.
  */
 export async function insertFileAsSourceBlock(

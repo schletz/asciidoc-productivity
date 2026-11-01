@@ -43,7 +43,6 @@ export default class AsciidocSyntax implements MarkupSyntax {
      * blank line. Rows written on a single line (`|a |b`) end up as one row.
      */
     public parseTable(text: string): TableRows {
-        // Isolate individual table rows after removing the table delimiters.
         const rowTexts = text.replace(/^\|===/gm, '').trim().split(/(?:\r?\n){2,}/);
         if (rowTexts.length === 1 && rowTexts[0] === '') {
             return [];

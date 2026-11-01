@@ -23,42 +23,42 @@ export interface FormattedTable {
 interface MarkupSyntax {
     /**
      * Wraps content in a source code block.
-     * @param content Source code, inserted unchanged.
-     * @param language Language identifier for syntax highlighting; empty or undefined omits it.
+     * @param content - Source code, inserted unchanged.
+     * @param language - Language identifier for syntax highlighting; empty or undefined omits it.
      */
     sourceBlock(content: string, language?: string): string;
 
     /**
      * Source code block preceded by a link to the file it was read from.
-     * @param content File content.
-     * @param language Language identifier; undefined omits it.
-     * @param relativePath Path from the document to the file, with forward slashes.
-     * @param fileName File name shown as link text.
+     * @param content - File content.
+     * @param language - Language identifier; undefined omits it.
+     * @param relativePath - Path from the document to the file, with forward slashes.
+     * @param fileName - File name shown as link text.
      */
     fileSourceBlock(content: string, language: string | undefined, relativePath: string, fileName: string): string;
 
     /**
      * Image reference.
-     * @param relativePath Path from the document to the image, with forward slashes.
+     * @param relativePath - Path from the document to the image, with forward slashes.
      */
     image(relativePath: string): string;
 
     /**
      * Image reference with a visible note about the URL the image was downloaded from.
-     * @param relativePath Path from the document to the image, with forward slashes.
-     * @param sourceUrl Original URL of the image.
+     * @param relativePath - Path from the document to the image, with forward slashes.
+     * @param sourceUrl - Original URL of the image.
      */
     imageWithSource(relativePath: string, sourceUrl: string): string;
 
     /**
      * Table with the first row as header.
-     * @param rows Table content; an empty array yields an empty string.
+     * @param rows - Table content; an empty array yields an empty string.
      */
     table(rows: TableRows): string;
 
     /**
      * Reads a table in the format produced by {@link table}; the inverse operation.
-     * @param text Selected table markup.
+     * @param text - Selected table markup.
      * @returns The rows with unescaped, trimmed cells; may be empty.
      */
     parseTable(text: string): TableRows;
@@ -66,8 +66,8 @@ interface MarkupSyntax {
     /**
      * Aligns the columns of the table that contains the given line. Optional: syntaxes
      * without table formatting leave it undefined, and the command reports that.
-     * @param lines All lines of the document.
-     * @param line Zero-based line of the cursor.
+     * @param lines - All lines of the document.
+     * @param line - Zero-based line of the cursor.
      * @returns The table range and its formatted text, or undefined if the line is not inside a table.
      */
     formatTableAt?(lines: string[], line: number): FormattedTable | undefined;

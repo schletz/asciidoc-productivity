@@ -11,11 +11,11 @@ interface PromptQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Initiates an AI processing task on the currently selected text in the active editor.
- * Presents a quick pick menu of predefined system prompts or allows custom input,
- * sends the request to the LLM service, and replaces the selection with the result.
- * @param configurationService - Provides access to stored prompt configurations.
- * @param llmService - Handles communication with the AI model.
+ * Command handler: lets the user pick a system prompt (or enter one with a temperature),
+ * sends the trimmed selection to the LLM and replaces the selection with the answer.
+ * Errors are shown as warnings.
+ * @param configurationService - Source of the system prompts.
+ * @param llmService - Sends the request.
  */
 export async function sendToAi(
     configurationService: ConfigurationService,
@@ -32,6 +32,7 @@ export async function sendToAi(
         }
 
         const textToProcess = editor.document.getText(selection).trim();
+        // Only a warning: long texts cost many tokens with cloud models and may exceed maxOutputTokens.
         const MAX_CHARS = 16384;
         if (textToProcess.length > MAX_CHARS) {
             vscode.window.showWarningMessage(
@@ -41,7 +42,6 @@ export async function sendToAi(
 
         const prompts = configurationService.getSystemPrompts();
 
-        // Map configured prompts to QuickPick items with their associated AI parameters
         const quickPickItems: PromptQuickPickItem[] = prompts.map(p => ({
             label: p.name,
             detail: p.prompt,
@@ -50,7 +50,6 @@ export async function sendToAi(
             isCustom: false
         }));
 
-        // Append a custom prompt option to the selection menu
         quickPickItems.push({
             label: '$(pencil) Custom Prompt...',
             description: 'Enter a specific prompt and temperature for this execution',
@@ -70,7 +69,6 @@ export async function sendToAi(
         let systemPrompt = selectedOption.systemPrompt;
         let temperature = selectedOption.temperature;
 
-        // Prompt user for custom configuration when the custom option is chosen
         if (selectedOption.isCustom) {
             const customInput = await vscode.window.showInputBox({
                 prompt: 'Enter your custom system prompt',
@@ -98,7 +96,6 @@ export async function sendToAi(
 
         const userPrompt = textToProcess;
 
-        // Execute AI request with a progress notification to indicate ongoing work
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: `Sending to AI (${selectedOption.label})...`,
@@ -107,15 +104,14 @@ export async function sendToAi(
             const result = await llmService.sendPrompt(
                 systemPrompt, userPrompt, temperature, outputChannel);
 
-            // Replace the original selection with the AI-generated response
+            // The selection captured before the request is replaced, even if the cursor moved meanwhile.
             await editor.edit(editBuilder => {
                 editBuilder.replace(selection, result.content);
             });
 
             if (result.stats) {
                 let message = `AI task finished in ${result.stats.durationSeconds} sec, ${result.stats.completionTokens} tokens, ${result.stats.tokensPerSecond} tokens/sec.`;
-                // Check for output token limit violations and notify the user accordingly
-                if (result.stats.hasLengethExeeded) {
+                    if (result.stats.hasLengthExceeded) {
                     message = message + "\nWARNING: The limit for maxOutputTokens has been exceeded. The text is truncated.";
                     vscode.window.showWarningMessage(message, { modal: true });
                 } else {

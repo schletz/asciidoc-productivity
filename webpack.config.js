@@ -4,28 +4,31 @@
 
 const path = require('path');
 
-//@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-/** @type WebpackConfig */
+/**
+ * Bundles src/extension.ts with all dependencies into dist/extension.js, the `main` entry of
+ * package.json. `npm run package` builds the same bundle in production mode.
+ * @type WebpackConfig
+ */
 const extensionConfig = {
-  target: 'node', // VS Code extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
-  mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
+  target: 'node',
+  mode: 'none',
 
-  entry: './src/extension.ts', // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
+  entry: './src/extension.ts',
   output: {
-    // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
     path: path.resolve(__dirname, 'dist'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2'
   },
   externals: {
+    // Provided by the extension host at runtime.
     vscode: 'commonjs vscode',
   },
   resolve: {
-    // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
     extensions: ['.ts', '.js'],
     alias: {
+      // See src/ssh2-mock.js.
       'ssh2': path.resolve(__dirname, 'src/ssh2-mock.js')
     }
   },
@@ -44,7 +47,8 @@ const extensionConfig = {
   },
   devtool: 'nosources-source-map',
   infrastructureLogging: {
-    level: "log", // enables logging required for problem matchers
+    // The problem matcher of the watch task in .vscode/tasks.json reads this log.
+    level: "log",
   },
 };
 module.exports = [extensionConfig];

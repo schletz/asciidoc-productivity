@@ -67,7 +67,7 @@ suite('E2E: sendToAi', () => {
         assert.strictEqual(request.path, '/v1/messages');
         assert.strictEqual(request.headers['x-api-key'], 'test-key');
         assert.strictEqual(request.body.temperature, undefined);
-        assert.ok(request.body.system.startsWith('You are an expert editor'));
+        assert.ok(request.body.system.startsWith('Correct spelling, grammar, and punctuation'));
     });
 
     test('shows a warning and keeps the selection on an API error', async () => {

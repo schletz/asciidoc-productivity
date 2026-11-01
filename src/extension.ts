@@ -21,12 +21,12 @@ import { PreviewService } from './PreviewService';
 import { runMarkupCommand } from './runMarkupCommand';
 
 /**
- * Activates the extension by registering all commands and subscribing them to the context.
- * @param context - The VS Code extension context provided by the host environment.
+ * Registers all commands of the extension. The LLM services are created per invocation,
+ * so a model's rejected temperature parameter is only remembered for one command run.
+ * @param context - Extension context; registered commands are disposed with it.
  */
 export function activate(context: ExtensionContext) {
-    // Markup commands work on the active AsciiDoc or Markdown document; runMarkupCommand
-    // resolves its syntax per call and reports errors.
+    // Markup commands resolve the AsciiDoc or Markdown syntax of the active document per call.
     let insertSourceBlockCmd = commands.registerCommand(
         'asciidoc-productivity.insertSourceBlock', runMarkupCommand(insertSourceBlock));
 
@@ -108,6 +108,7 @@ export function activate(context: ExtensionContext) {
         formatTableCmd,
         convertToTableCmd,
         translateCmd,
+        sendToAiCmd,
         exportAsPdfCmd,
         showPreviewCmd,
         sendFilesToAiCmd
@@ -115,7 +116,7 @@ export function activate(context: ExtensionContext) {
 }
 
 /**
- * Deactivates the extension. Performs cleanup operations such as stopping active Docker containers.
+ * Stops the Kroki container of the preview, so no container outlives the VS Code session.
  */
 export async function deactivate(): Promise<void> {
     await PreviewService.getInstance().shutdown();

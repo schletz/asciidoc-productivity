@@ -11,8 +11,8 @@ export default class TestSettings {
 
     /**
      * Sets a setting of the extension.
-     * @param key Key without the extension prefix, e.g. 'completionsUrl'.
-     * @param value New value; undefined removes the workspace value.
+     * @param key - Key without the extension prefix, e.g. 'completionsUrl'.
+     * @param value - New value; undefined removes the workspace value.
      */
     public async set(key: string, value: unknown): Promise<void> {
         const config = vscode.workspace.getConfiguration(this.section);

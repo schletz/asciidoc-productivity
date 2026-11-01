@@ -37,8 +37,8 @@ export default class TestWorkspace {
 
     /**
      * Writes a file below the workspace folder, creating missing directories.
-     * @param relativePath Path relative to the workspace folder, using forward slashes.
-     * @param content File content, written as UTF-8.
+     * @param relativePath - Path relative to the workspace folder, using forward slashes.
+     * @param content - File content, written as UTF-8.
      * @returns The absolute path of the written file.
      */
     public static writeFile(relativePath: string, content: string | Buffer): string {
@@ -50,7 +50,7 @@ export default class TestWorkspace {
 
     /**
      * Reads a file below the workspace folder as UTF-8.
-     * @param relativePath Path relative to the workspace folder.
+     * @param relativePath - Path relative to the workspace folder.
      */
     public static readFile(relativePath: string): string {
         return fs.readFileSync(path.join(TestWorkspace.rootPath, relativePath), 'utf8');
@@ -62,8 +62,8 @@ export default class TestWorkspace {
      * Without markers the cursor is placed at the start of the document.
      * Use a distinct path per test: VS Code may keep a closed document in memory and
      * would then return the stale content instead of the newly written file.
-     * @param relativePath Path relative to the workspace folder; the extension decides the language id.
-     * @param content Document content, optionally with selection markers.
+     * @param relativePath - Path relative to the workspace folder; the extension decides the language id.
+     * @param content - Document content, optionally with selection markers.
      * @returns The editor showing the document.
      */
     public static async openDocument(relativePath: string, content: string): Promise<vscode.TextEditor> {
@@ -86,8 +86,8 @@ export default class TestWorkspace {
 
     /**
      * Shows a new, never saved document (scheme untitled) in the active editor.
-     * @param languageId Language of the document, e.g. 'markdown'.
-     * @param content Initial content.
+     * @param languageId - Language of the document, e.g. 'markdown'.
+     * @param content - Initial content.
      * @returns The editor showing the document.
      */
     public static async openUntitledDocument(languageId: string, content: string = ''): Promise<vscode.TextEditor> {
@@ -110,8 +110,8 @@ export default class TestWorkspace {
 
     /**
      * Executes a command contributed by the extension under test.
-     * @param name Command name without the extension prefix, e.g. 'insertSourceBlock'.
-     * @param args Arguments passed to the handler, e.g. the clicked URI for explorer commands.
+     * @param name - Command name without the extension prefix, e.g. 'insertSourceBlock'.
+     * @param args - Arguments passed to the handler, e.g. the clicked URI for explorer commands.
      */
     public static async runCommand(name: string, ...args: unknown[]): Promise<void> {
         await vscode.commands.executeCommand(`asciidoc-productivity.${name}`, ...args);

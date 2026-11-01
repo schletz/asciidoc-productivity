@@ -9,8 +9,8 @@ const execAsync = promisify(exec);
 
 /**
  * Extracts an image from the system clipboard and inserts its reference into the current document.
- * @param editorService The active editor.
- * @param syntax Markup of the active document.
+ * @param editorService - The active editor.
+ * @param syntax - Markup of the active document.
  * @throws Error if the document is unsaved, the platform is Linux, or the clipboard holds no image.
  */
 export async function insertImageFromClipboard(editorService: EditorService, syntax: MarkupSyntax): Promise<void> {
@@ -18,7 +18,8 @@ export async function insertImageFromClipboard(editorService: EditorService, syn
         throw new Error('Please save the document first to insert images with relative paths.');
     }
 
-    // Construct platform-specific command to extract clipboard image to the target path.
+    // Node has no access to clipboard images, so a platform script writes the PNG. The path
+    // is embedded unescaped in quotes: ' (Windows) or " (macOS) in the path breaks the script.
     let scriptFor: (savePath: string) => string;
     if (process.platform === 'win32') {
         scriptFor = savePath => `powershell -command "Add-Type -AssemblyName System.Windows.Forms; $clip = [System.Windows.Forms.Clipboard]::GetImage(); if ($clip -ne $null) { $clip.Save('${savePath}', [System.Drawing.Imaging.ImageFormat]::Png) } else { exit 1 }"`;

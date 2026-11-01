@@ -15,7 +15,7 @@ export type MarkupCommandHandler<TArgs extends unknown[]> =
  * the document that is active when the command runs, so it is resolved per call instead of
  * at activation. Every error, including a missing editor or an unsupported language,
  * is shown as an error message.
- * @param handler The command implementation.
+ * @param handler - The command implementation.
  * @returns The callback to pass to commands.registerCommand; VS Code arguments are forwarded.
  */
 export function runMarkupCommand<TArgs extends unknown[]>(

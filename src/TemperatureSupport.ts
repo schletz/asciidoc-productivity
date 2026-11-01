@@ -1,38 +1,28 @@
 /**
- * Decides whether the `temperature` sampling parameter may be sent to a model.
+ * Decides whether the `temperature` parameter may be sent to a model.
  *
- * Anthropic removed the sampling parameters (`temperature`, `top_p`, `top_k`)
- * starting with Opus 4.7 and for every model of generation 5 and above
- * (Opus 5, Sonnet 5, Fable 5, Mythos 5). Those models answer with
- * HTTP 400 ("Temperature is deprecated.") as soon as the field is present,
- * while older models (Sonnet 4.6, Haiku 4.5, Opus 4.6, Claude 3.x, ...) and all
- * OpenAI-compatible endpoints still expect it.
- *
- * Because the list of affected models keeps growing, the decision combines two
- * sources:
- * 1. A static rule derived from the Anthropic model naming scheme, so no extra
- *    round trip is needed for known models.
- * 2. A runtime fallback: whenever an endpoint rejects a request because of the
- *    temperature parameter, the model is remembered for the rest of the session
- *    and the parameter is omitted from then on.
+ * Anthropic models from Opus 4.7 on and every model of generation 5 and above answer with
+ * HTTP 400 as soon as the field is present; older Claude models and OpenAI-compatible
+ * endpoints still accept it. Two sources decide:
+ * 1. A static rule on the Anthropic model naming scheme, so known models need no extra request.
+ * 2. A runtime fallback: a model whose request was rejected because of the temperature is
+ *    remembered by this instance and gets no temperature from then on.
  */
 export default class TemperatureSupport {
-    /** Models that answered with a temperature related error during this session. */
+    /** Models that rejected the temperature during the lifetime of this instance. */
     private readonly rejectedModels = new Set<string>();
 
     /**
-     * Matches Anthropic model ids such as `claude-opus-4-7`, `claude-sonnet-5`
-     * or the platform prefixed `anthropic.claude-opus-5`. Dated Claude 3 ids
-     * (`claude-3-opus-20240229`) intentionally do not match, because the family
-     * and version parts are swapped there and those models still accept
-     * temperature.
+     * Matches ids such as `claude-opus-4-7`, `claude-sonnet-5` or `anthropic.claude-opus-5`.
+     * Dated Claude 3 ids (`claude-3-opus-20240229`) do not match, because family and version
+     * are swapped there; those models accept the temperature.
      */
     private static readonly ANTHROPIC_MODEL_ID =
         /claude-(?<family>[a-z]+)-(?<major>\d+)(?:-(?<minor>\d+))?/i;
 
     /**
-     * Checks whether `temperature` should be part of the request body.
-     * @param model - Configured model identifier.
+     * Checks whether the request body may contain `temperature`.
+     * @param model - Configured model id.
      */
     public isSupported(model: string): boolean {
         if (this.rejectedModels.has(model)) {
@@ -43,30 +33,28 @@ export default class TemperatureSupport {
     }
 
     /**
-     * Remembers that a model rejected the temperature parameter so that
-     * subsequent requests skip it right away.
-     * @param model - Model identifier that produced the error.
+     * Remembers that a model rejected the temperature.
+     * @param model - Model id of the failed request.
      */
     public rememberRejection(model: string): void {
         this.rejectedModels.add(model);
     }
 
     /**
-     * Detects whether an API error was caused by the temperature parameter.
-     * Anthropic reports "Temperature is deprecated.", OpenAI style endpoints
-     * report an unsupported value for 'temperature'; both use status 400.
-     * @param status - HTTP status code of the failed response.
-     * @param details - Raw error body returned by the API.
+     * Detects an error caused by the temperature. Anthropic answers "Temperature is
+     * deprecated.", OpenAI-style endpoints report an unsupported value for 'temperature';
+     * both with status 400.
+     * @param status - HTTP status of the failed response.
+     * @param details - Response body.
      */
     public static isTemperatureRejection(status: number, details: string): boolean {
         return status === 400 && /temperature/i.test(details);
     }
 
     /**
-     * Applies the Anthropic naming scheme rule. Unknown identifiers (local
-     * models, OpenAI, custom deployments) are treated as supporting temperature;
+     * Applies the naming scheme rule. Ids that are not Anthropic ids count as supported;
      * a wrong guess is corrected by the runtime fallback.
-     * @param model - Model identifier to classify.
+     * @param model - Model id to classify.
      */
     private static isSupportedByModelId(model: string): boolean {
         const match = TemperatureSupport.ANTHROPIC_MODEL_ID.exec(model.trim());
@@ -78,12 +66,11 @@ export default class TemperatureSupport {
         const major = Number(match.groups.major);
         const minor = Number(match.groups.minor ?? '0');
 
-        // Generation 5 and newer dropped the sampling parameters completely.
         if (major >= 5) {
             return false;
         }
 
-        // Within generation 4 only the Opus line lost them, starting with 4.7.
+        // Within generation 4 only the Opus line dropped the parameter, from 4.7 on.
         return !(family === 'opus' && major === 4 && minor >= 7);
     }
 }
