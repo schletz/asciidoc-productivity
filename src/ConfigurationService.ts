@@ -126,7 +126,7 @@ export default class ConfigurationService {
             },
             {
                 "name": "Rewrite for Agent",
-                "prompt": "Structure the text in the user message so that an agent can read it in a token-efficient and compact way.\n\nYou have the following Markdown structural elements available, which you can use and combine:\n\n- Tables\n- Lists (ordered and unordered)\n- Plain text (prose)\n\nOutput ONLY the rewritten text. Do not add explanations or comments.",
+                "prompt": "Translate the user message text into English and restructure it for an AI agent. Requirements: token-efficient, no information loss.\n\nYou have the following Markdown structural elements available, which you can use and combine:\n\n- Tables\n- Lists (ordered and unordered).\n- Plain text (prose).\n\nOutput ONLY the rewritten text. Do not add explanations or comments.",
                 "temperature": 0.2
             }
         ];
